@@ -28,6 +28,8 @@ const MANAGE_PROFILES_J = { subsystem: 'security', objectName: 'UserProfile', me
 const MANAGE_PERMS_J = { subsystem: 'security', objectName: 'Permission', methodName: 'grantMethod' };
 // Permiso para listar usuarios (decide si se muestra la pestaña "Listar usuarios").
 const LIST_USERS_J = { subsystem: 'security', objectName: 'User', methodName: 'listUsers' };
+// Permiso para el mantenimiento de perfiles (CRUD de profile).
+const CRUD_PROFILES_J = { subsystem: 'security', objectName: 'Profile', methodName: 'insertProfile' };
 
 // Subsistemas a los que el perfil activo tiene acceso (al menos un metodo permitido).
 // Es la "subsystem list" que la pizarra entrega tras el login.
@@ -42,7 +44,10 @@ const AUDIT_ACTIONS = {
     addUserProfile: 'insert',
     removeUserProfile: 'delete',
     grantMethod: 'insert',
-    revokeMethod: 'delete'
+    revokeMethod: 'delete',
+    insertProfile: 'insert',
+    updateProfile: 'update',
+    deleteProfile: 'delete'
 };
 
 // Arma una descripcion legible de los params SIN exponer secretos (la contraseña nunca
@@ -74,7 +79,8 @@ async function withPermissions(data) {
         canRegister: global.sec.getPermissionMethod(REGISTER_J, data.profile_id),
         canManageProfiles: global.sec.getPermissionMethod(MANAGE_PROFILES_J, data.profile_id),
         canManagePermissions: global.sec.getPermissionMethod(MANAGE_PERMS_J, data.profile_id),
-        canListUsers: global.sec.getPermissionMethod(LIST_USERS_J, data.profile_id)
+        canListUsers: global.sec.getPermissionMethod(LIST_USERS_J, data.profile_id),
+        canCrudProfiles: global.sec.getPermissionMethod(CRUD_PROFILES_J, data.profile_id)
     };
 }
 
@@ -254,10 +260,12 @@ app.post('/toProcess', async (req, res) => {
             ['model', 'seedProfileAdmin'],
             ['model', 'seedProfileEmpleado'],
             ['model', 'seedProfileLider'],
+            ['model', 'syncProfileSeq'],
             ['model', 'seedSubSystemSecurity'],
             ['model', 'seedObjectUser'],
             ['model', 'seedObjectUserProfile'],
             ['model', 'seedObjectPermission'],
+            ['model', 'seedObjectProfile'],
             ['model', 'seedMethodListUsers'],
             ['model', 'seedMethodInsertUser'],
             ['model', 'seedMethodListProfiles'],
@@ -267,6 +275,9 @@ app.post('/toProcess', async (req, res) => {
             ['model', 'seedMethodListPermissionMethods'],
             ['model', 'seedMethodGrantMethod'],
             ['model', 'seedMethodRevokeMethod'],
+            ['model', 'seedMethodInsertProfile'],
+            ['model', 'seedMethodUpdateProfile'],
+            ['model', 'seedMethodDeleteProfile'],
             ['model', 'seedPermAdminListUsers'],
             ['model', 'seedPermAdminInsertUser'],
             ['model', 'seedPermAdminListProfiles'],
@@ -276,6 +287,9 @@ app.post('/toProcess', async (req, res) => {
             ['model', 'seedPermAdminListPermissionMethods'],
             ['model', 'seedPermAdminGrantMethod'],
             ['model', 'seedPermAdminRevokeMethod'],
+            ['model', 'seedPermAdminInsertProfile'],
+            ['model', 'seedPermAdminUpdateProfile'],
+            ['model', 'seedPermAdminDeleteProfile'],
             ['model', 'seedUserAdmin'],
             ['model', 'seedUserEmpleado'],
             ['model', 'seedUserProfileAdmin'],

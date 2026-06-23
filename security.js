@@ -72,6 +72,22 @@ const businessMethods = {
         await global.dbc.exeQuery(global.dbc.getSentence('security', 'revokeMethod'), [profile_id, method_id]);
         await global.sec.loadPermissionMethod();   // refresca el Map de permisos
         return { revoked: true };
+    },
+
+    // Mantenimiento de perfiles: eliminar un perfil. Candado: no se puede borrar un perfil
+    // que aun tiene usuarios asignados (quedarian sin rol y sin poder iniciar sesion).
+    // Al borrarlo, sus filas en permission_method/permission_option caen por CASCADE -> recargar.
+    'security.Profile.deleteProfile': async (ctx) => {
+        const [profile_id] = ctx.params || [];
+        if (!profile_id) throw new AppError(400, 'Falta profile_id.');
+        const used = await global.dbc.exeQuery(global.dbc.getSentence('security', 'countProfileUsers'), [profile_id]);
+        if (used[0] && Number(used[0].n) > 0) {
+            throw new AppError(409, 'No puedes eliminar un perfil con usuarios asignados. Quítalo de los usuarios primero.');
+        }
+        await global.dbc.exeQuery(global.dbc.getSentence('security', 'deleteProfile'), [profile_id]);
+        await global.sec.loadPermissionMethod();
+        await global.sec.loadPermissionOption();
+        return { deleted: true };
     }
     // 👉 Aqui viviran mas adelante insertProject, insertActivity, insertNotification...
 };

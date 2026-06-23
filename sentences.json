@@ -11,7 +11,11 @@
     "listPermissionMethods": "SELECT m.method_id, m.method_de, o.object_de, s.sub_system_de, (pm.permission_method_id IS NOT NULL) AS granted FROM method m INNER JOIN object o ON o.object_id = m.object_id INNER JOIN sub_system s ON s.sub_system_id = o.sub_system_id LEFT JOIN permission_method pm ON pm.method_id = m.method_id AND pm.profile_id = $1 ORDER BY s.sub_system_de, o.object_de, m.method_id",
     "isPermissionMethod": "SELECT EXISTS(SELECT 1 FROM method m INNER JOIN object o ON o.object_id = m.object_id WHERE m.method_id = $1 AND o.object_de = 'Permission') AS is_perm",
     "grantMethod": "INSERT INTO permission_method (profile_id, method_id) VALUES ($1, $2) ON CONFLICT (profile_id, method_id) DO NOTHING",
-    "revokeMethod": "DELETE FROM permission_method WHERE profile_id = $1 AND method_id = $2"
+    "revokeMethod": "DELETE FROM permission_method WHERE profile_id = $1 AND method_id = $2",
+    "insertProfile": "INSERT INTO profile (profile_de) VALUES ($1) RETURNING profile_id",
+    "updateProfile": "UPDATE profile SET profile_de = $2 WHERE profile_id = $1",
+    "deleteProfile": "DELETE FROM profile WHERE profile_id = $1",
+    "countProfileUsers": "SELECT COUNT(*)::int AS n FROM user_profile WHERE profile_id = $1"
   },
   "model": {
     "dropAll": "DROP TABLE IF EXISTS audit, permission_method, permission_option, user_profile, method, option, object, sub_system, subsystem, \"user\", users, profile, status CASCADE",
@@ -40,12 +44,14 @@
     "seedProfileAdmin": "INSERT INTO profile (profile_id, profile_de) VALUES (1, 'Administrador') ON CONFLICT (profile_id) DO UPDATE SET profile_de = EXCLUDED.profile_de",
     "seedProfileEmpleado": "INSERT INTO profile (profile_id, profile_de) VALUES (2, 'Empleado') ON CONFLICT (profile_id) DO UPDATE SET profile_de = EXCLUDED.profile_de",
     "seedProfileLider": "INSERT INTO profile (profile_id, profile_de) VALUES (3, 'Líder de proyecto') ON CONFLICT (profile_id) DO UPDATE SET profile_de = EXCLUDED.profile_de",
+    "syncProfileSeq": "SELECT setval(pg_get_serial_sequence('profile', 'profile_id'), (SELECT COALESCE(MAX(profile_id), 1) FROM profile))",
 
     "seedSubSystemSecurity": "INSERT INTO sub_system (sub_system_id, sub_system_de) VALUES (1, 'security') ON CONFLICT (sub_system_id) DO NOTHING",
 
     "seedObjectUser": "INSERT INTO object (object_id, object_de, sub_system_id) VALUES (1, 'User', 1) ON CONFLICT (object_id) DO NOTHING",
     "seedObjectUserProfile": "INSERT INTO object (object_id, object_de, sub_system_id) VALUES (2, 'UserProfile', 1) ON CONFLICT (object_id) DO NOTHING",
     "seedObjectPermission": "INSERT INTO object (object_id, object_de, sub_system_id) VALUES (3, 'Permission', 1) ON CONFLICT (object_id) DO NOTHING",
+    "seedObjectProfile": "INSERT INTO object (object_id, object_de, sub_system_id) VALUES (4, 'Profile', 1) ON CONFLICT (object_id) DO NOTHING",
 
     "seedMethodListUsers": "INSERT INTO method (method_id, method_de, object_id) VALUES (1, 'listUsers', 1) ON CONFLICT (method_id) DO NOTHING",
     "seedMethodInsertUser": "INSERT INTO method (method_id, method_de, object_id) VALUES (2, 'insertUser', 1) ON CONFLICT (method_id) DO NOTHING",
@@ -56,6 +62,9 @@
     "seedMethodListPermissionMethods": "INSERT INTO method (method_id, method_de, object_id) VALUES (7, 'listPermissionMethods', 3) ON CONFLICT (method_id) DO NOTHING",
     "seedMethodGrantMethod": "INSERT INTO method (method_id, method_de, object_id) VALUES (8, 'grantMethod', 3) ON CONFLICT (method_id) DO NOTHING",
     "seedMethodRevokeMethod": "INSERT INTO method (method_id, method_de, object_id) VALUES (9, 'revokeMethod', 3) ON CONFLICT (method_id) DO NOTHING",
+    "seedMethodInsertProfile": "INSERT INTO method (method_id, method_de, object_id) VALUES (10, 'insertProfile', 4) ON CONFLICT (method_id) DO NOTHING",
+    "seedMethodUpdateProfile": "INSERT INTO method (method_id, method_de, object_id) VALUES (11, 'updateProfile', 4) ON CONFLICT (method_id) DO NOTHING",
+    "seedMethodDeleteProfile": "INSERT INTO method (method_id, method_de, object_id) VALUES (12, 'deleteProfile', 4) ON CONFLICT (method_id) DO NOTHING",
 
     "seedPermAdminListUsers": "INSERT INTO permission_method (profile_id, method_id) VALUES (1, 1) ON CONFLICT (profile_id, method_id) DO NOTHING",
     "seedPermAdminInsertUser": "INSERT INTO permission_method (profile_id, method_id) VALUES (1, 2) ON CONFLICT (profile_id, method_id) DO NOTHING",
@@ -66,6 +75,9 @@
     "seedPermAdminListPermissionMethods": "INSERT INTO permission_method (profile_id, method_id) VALUES (1, 7) ON CONFLICT (profile_id, method_id) DO NOTHING",
     "seedPermAdminGrantMethod": "INSERT INTO permission_method (profile_id, method_id) VALUES (1, 8) ON CONFLICT (profile_id, method_id) DO NOTHING",
     "seedPermAdminRevokeMethod": "INSERT INTO permission_method (profile_id, method_id) VALUES (1, 9) ON CONFLICT (profile_id, method_id) DO NOTHING",
+    "seedPermAdminInsertProfile": "INSERT INTO permission_method (profile_id, method_id) VALUES (1, 10) ON CONFLICT (profile_id, method_id) DO NOTHING",
+    "seedPermAdminUpdateProfile": "INSERT INTO permission_method (profile_id, method_id) VALUES (1, 11) ON CONFLICT (profile_id, method_id) DO NOTHING",
+    "seedPermAdminDeleteProfile": "INSERT INTO permission_method (profile_id, method_id) VALUES (1, 12) ON CONFLICT (profile_id, method_id) DO NOTHING",
 
     "seedUserAdmin": "INSERT INTO \"user\" (user_na, user_pw, status_id) VALUES ('admin1', 'Admin123', 1) ON CONFLICT (user_na) DO NOTHING",
     "seedUserEmpleado": "INSERT INTO \"user\" (user_na, user_pw, status_id) VALUES ('empleado1', 'Empleado123', 1) ON CONFLICT (user_na) DO NOTHING",

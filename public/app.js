@@ -23,6 +23,9 @@ const userProfilesList = $('#userProfilesList');
 const permProfileSelect = $('#permProfileSelect');
 const permMsg = $('#permMsg');
 const permList = $('#permList');
+const formProfile = $('#formProfile');
+const profileCrudMsg = $('#profileCrudMsg');
+const profileCrudList = $('#profileCrudList');
 
 // Estado de la sesion en el cliente.
 let currentSession = null;
@@ -164,6 +167,60 @@ async function refreshPermList() {
   }
 }
 
+// ---- Pestaña "Mantenimiento de perfiles" (CRUD de profile) ----
+function showProfileCrudMsg(text, ok = true) {
+  profileCrudMsg.textContent = text || '';
+  profileCrudMsg.className = 'msg ' + (ok ? 'ok' : 'error');
+}
+
+async function loadProfileCrud() {
+  showProfileCrudMsg('');
+  profileCrudList.innerHTML = '';
+  const res = await toProcess('UserProfile', 'listProfiles', []);
+  if (!res.ok) { showProfileCrudMsg(res.data.msg || 'Error.', false); return; }
+  for (const p of res.data.data) {
+    const item = document.createElement('div');
+    item.className = 'item';
+
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = `#${p.profile_id} · ${p.profile_de}`;
+
+    const actions = document.createElement('span');
+    actions.className = 'row-actions';
+
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'mini';
+    editBtn.textContent = 'Renombrar';
+    editBtn.addEventListener('click', async () => {
+      const nuevo = prompt('Nuevo nombre del perfil:', p.profile_de);
+      if (nuevo == null) return;
+      const name = nuevo.trim();
+      if (!name) { showProfileCrudMsg('El nombre no puede estar vacío.', false); return; }
+      const r = await toProcess('Profile', 'updateProfile', [p.profile_id, name]);
+      showProfileCrudMsg(r.ok ? 'Perfil renombrado.' : (r.data.msg || 'Error.'), r.ok);
+      if (r.ok) loadProfileCrud();
+    });
+
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'mini danger';
+    delBtn.textContent = 'Eliminar';
+    delBtn.addEventListener('click', async () => {
+      if (!confirm(`¿Eliminar el perfil "${p.profile_de}"?`)) return;
+      const r = await toProcess('Profile', 'deleteProfile', [p.profile_id]);
+      showProfileCrudMsg(r.ok ? 'Perfil eliminado.' : (r.data.msg || 'Error.'), r.ok);
+      if (r.ok) loadProfileCrud();
+    });
+
+    actions.appendChild(editBtn);
+    actions.appendChild(delBtn);
+    item.appendChild(nameSpan);
+    item.appendChild(actions);
+    profileCrudList.appendChild(item);
+  }
+}
+
 // ---- Pestaña "Listar usuarios" ----
 function renderUsers(rows) {
   resultList.innerHTML = '';
@@ -183,10 +240,11 @@ function renderUsers(rows) {
 
 // Definicion de pestañas: etiqueta, permiso que las habilita, y carga de datos al abrir.
 const TABS = [
-  { id: 'registerBox', label: 'Crear cuenta',         can: (s) => s.canRegister,          load: () => formRegister.reset() },
-  { id: 'manageBox',   label: 'Perfiles de usuarios', can: (s) => s.canManageProfiles,    load: loadManageData },
-  { id: 'listBox',     label: 'Listar usuarios',      can: (s) => s.canListUsers,         load: null },
-  { id: 'permBox',     label: 'Gestionar permisos',   can: (s) => s.canManagePermissions, load: loadPermData }
+  { id: 'registerBox', label: 'Crear cuenta',            can: (s) => s.canRegister,          load: () => formRegister.reset() },
+  { id: 'profileBox',  label: 'Mantenimiento de perfiles', can: (s) => s.canCrudProfiles,    load: loadProfileCrud },
+  { id: 'manageBox',   label: 'Perfiles de usuarios',     can: (s) => s.canManageProfiles,    load: loadManageData },
+  { id: 'listBox',     label: 'Listar usuarios',          can: (s) => s.canListUsers,         load: null },
+  { id: 'permBox',     label: 'Gestionar permisos',       can: (s) => s.canManagePermissions, load: loadPermData }
 ];
 
 // Muestra una pestaña: oculta el resto de paneles y marca el boton activo.
@@ -346,6 +404,20 @@ formRegister.addEventListener('submit', async (e) => {
     showRegisterMsg('• ' + data.errors.join('\n• '), false);
   } else {
     showRegisterMsg(data.msg, false);
+  }
+});
+
+formProfile.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = (new FormData(formProfile)).get('profile_de').trim();
+  if (!name) { showProfileCrudMsg('El nombre no puede estar vacío.', false); return; }
+  const { ok, data } = await toProcess('Profile', 'insertProfile', [name]);
+  if (ok) {
+    formProfile.reset();
+    showProfileCrudMsg('Perfil creado.', true);
+    loadProfileCrud();
+  } else {
+    showProfileCrudMsg(data.msg || 'Error.', false);
   }
 });
 

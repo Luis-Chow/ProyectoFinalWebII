@@ -102,6 +102,19 @@
             <div id="permList" class="list"></div>
           </section>
 
+          <!-- Mantenimiento de perfiles (CRUD de profile) -->
+          <section id="profileBox" class="tabpanel hidden">
+            <h2>Mantenimiento de perfiles</h2>
+            <form id="formProfile" class="form">
+              <label>Nuevo perfil
+                <input type="text" name="profile_de" maxlength="50" required>
+              </label>
+              <button type="submit">Crear perfil</button>
+            </form>
+            <p id="profileCrudMsg" class="msg"></p>
+            <div id="profileCrudList" class="list"></div>
+          </section>
+
           <!-- Mensaje cuando el perfil activo no tiene acciones en este subsistema. -->
           <p id="noActions" class="hint hidden">Este perfil no tiene acciones disponibles en este subsistema.</p>
         </div>
