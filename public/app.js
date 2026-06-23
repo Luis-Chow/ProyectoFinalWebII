@@ -14,8 +14,9 @@ const noActions = $('#noActions');
 const profileSwitcher = $('#profileSwitcher');
 const profileSwitchSelect = $('#profileSwitchSelect');
 const registerMsg = $('#registerMsg');
-const resultMsg = $('#resultMsg');
-const resultList = $('#resultList');
+const createUserBlock = $('#createUserBlock');
+const usersMsg = $('#usersMsg');
+const usersList = $('#usersList');
 const userSelect = $('#userSelect');
 const profileAssignSelect = $('#profileAssignSelect');
 const manageMsg = $('#manageMsg');
@@ -45,9 +46,9 @@ function showRegisterMsg(text, ok = true) {
   registerMsg.textContent = text || '';
   registerMsg.className = 'msg ' + (ok ? 'ok' : 'error');
 }
-function showResultMsg(text, ok = true) {
-  resultMsg.textContent = text || '';
-  resultMsg.className = 'msg ' + (ok ? 'ok' : 'error');
+function showUsersMsg(text, ok = true) {
+  usersMsg.textContent = text || '';
+  usersMsg.className = 'msg ' + (ok ? 'ok' : 'error');
 }
 function showManageMsg(text, ok = true) {
   manageMsg.textContent = text || '';
@@ -221,30 +222,67 @@ async function loadProfileCrud() {
   }
 }
 
-// ---- Pestaña "Listar usuarios" ----
-function renderUsers(rows) {
-  resultList.innerHTML = '';
-  for (const u of rows) {
+// ---- Pestaña "Mantenimiento de usuarios" (CU-02) ----
+function loadUserMgmt() {
+  // El formulario de crear cuenta solo se muestra a quien tiene permiso.
+  createUserBlock.classList.toggle('hidden', !currentSession.canRegister);
+  formRegister.reset();
+  showRegisterMsg('');
+  refreshUsersList();
+}
+
+async function refreshUsersList() {
+  showUsersMsg('');
+  usersList.innerHTML = '';
+  const res = await toProcess('User', 'listUsers', []);
+  if (!res.ok) { showUsersMsg(res.data.msg || 'No tienes permiso para listar usuarios.', false); return; }
+  for (const u of res.data.data) {
     const item = document.createElement('div');
     item.className = 'item';
-    const nameSpan = document.createElement('span');
-    nameSpan.textContent = `#${u.user_id} · ${u.user_na}`;
-    const profSpan = document.createElement('span');
-    profSpan.className = 'tag';
-    profSpan.textContent = u.profiles;
-    item.appendChild(nameSpan);
-    item.appendChild(profSpan);
-    resultList.appendChild(item);
+
+    const info = document.createElement('span');
+    info.innerHTML = `#${u.user_id} · <b>${u.user_na}</b> <span class="tag">${u.profiles}</span>`;
+
+    const right = document.createElement('span');
+    right.className = 'row-actions';
+
+    const active = u.status_id === 1;
+    const badge = document.createElement('span');
+    badge.className = 'status-badge ' + (active ? 'on' : 'off');
+    badge.textContent = u.status_de;
+    right.appendChild(badge);
+
+    // Toggle activar/desactivar: solo si tiene permiso; bloqueado sobre tu propia cuenta activa.
+    if (currentSession.canManageUsers) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'mini' + (active ? ' danger' : '');
+      btn.textContent = active ? 'Desactivar' : 'Activar';
+      if (active && u.user_id === currentSession.user_id) {
+        btn.disabled = true;
+        btn.title = 'No puedes desactivar tu propia cuenta';
+      }
+      btn.addEventListener('click', async () => {
+        const newStatus = active ? 2 : 1;
+        const r = await toProcess('User', 'setUserStatus', [u.user_id, newStatus]);
+        showUsersMsg(r.ok ? `Usuario ${active ? 'desactivado' : 'activado'}.` : (r.data.msg || 'Error.'), r.ok);
+        if (r.ok) refreshUsersList();
+      });
+      right.appendChild(btn);
+    }
+
+    item.appendChild(info);
+    item.appendChild(right);
+    usersList.appendChild(item);
   }
 }
 
 // Definicion de pestañas: etiqueta, permiso que las habilita, y carga de datos al abrir.
 const TABS = [
-  { id: 'registerBox', label: 'Crear cuenta',            can: (s) => s.canRegister,          load: () => formRegister.reset() },
-  { id: 'profileBox',  label: 'Mantenimiento de perfiles', can: (s) => s.canCrudProfiles,    load: loadProfileCrud },
-  { id: 'manageBox',   label: 'Perfiles de usuarios',     can: (s) => s.canManageProfiles,    load: loadManageData },
-  { id: 'listBox',     label: 'Listar usuarios',          can: (s) => s.canListUsers,         load: null },
-  { id: 'permBox',     label: 'Gestionar permisos',       can: (s) => s.canManagePermissions, load: loadPermData }
+  { id: 'userMgmtBox', label: 'Mantenimiento de usuarios',   can: (s) => s.canListUsers || s.canRegister || s.canManageUsers, load: loadUserMgmt },
+  { id: 'profileBox',  label: 'Mantenimiento de perfiles',   can: (s) => s.canCrudProfiles,      load: loadProfileCrud },
+  { id: 'manageBox',   label: 'Asignar perfiles a usuarios', can: (s) => s.canManageProfiles,    load: loadManageData },
+  { id: 'permBox',     label: 'Asignar permisos',            can: (s) => s.canManagePermissions, load: loadPermData }
 ];
 
 // Muestra una pestaña: oculta el resto de paneles y marca el boton activo.
@@ -400,6 +438,7 @@ formRegister.addEventListener('submit', async (e) => {
   if (ok) {
     formRegister.reset();
     showRegisterMsg('Usuario creado.', true);
+    refreshUsersList();
   } else if (data.errors && data.errors.length) {
     showRegisterMsg('• ' + data.errors.join('\n• '), false);
   } else {
@@ -438,17 +477,6 @@ $('#btnRemove').addEventListener('click', async () => {
 });
 
 permProfileSelect.addEventListener('change', refreshPermList);
-
-$('#btnListUsers').addEventListener('click', async () => {
-  const { ok, data } = await toProcess('User', 'listUsers', []);
-  if (ok) {
-    renderUsers(data.data);
-    showResultMsg(`Permitido: ${data.data.length} usuario(s).`, true);
-  } else {
-    resultList.innerHTML = '';
-    showResultMsg(data.msg || 'Error.', false);
-  }
-});
 
 // Al recargar la pagina, restaura la sesion si la cookie sigue viva y reanuda en la
 // seleccion de subsistema.

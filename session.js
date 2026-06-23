@@ -119,6 +119,11 @@ class Session {
             if (!user) {
                 return { "ok": false, "msg": 'Credenciales inválidas.' };
             }
+            // Estado 1 = Activo. Una cuenta desactivada no puede entrar (CU-02).
+            const STATUS_ACTIVO = 1;
+            if (user.status_id !== STATUS_ACTIVO) {
+                return { "ok": false, "msg": 'Tu cuenta está desactivada. Contacta al administrador.' };
+            }
             this.createSession(user);
             const profiles = await this.getProfiles(user.user_id);
             return { "ok": true, "profiles": profiles, "data": this.getDataSession() };

@@ -43,6 +43,19 @@ const businessMethods = {
         }
     },
 
+    // CU-02 Mantenimiento de usuarios: activar/desactivar una cuenta (status_id).
+    // Candado: no puedes desactivar tu propia cuenta (te bloquearias al volver a entrar).
+    'security.User.setUserStatus': async (ctx) => {
+        const [user_id, status_id] = ctx.params || [];
+        if (!user_id || !status_id) throw new AppError(400, 'Faltan user_id o status_id.');
+        const STATUS_INACTIVO = 2;
+        if (Number(user_id) === Number(ctx.session.user_id) && Number(status_id) === STATUS_INACTIVO) {
+            throw new AppError(409, 'No puedes desactivar tu propia cuenta.');
+        }
+        await global.dbc.exeQuery(global.dbc.getSentence('security', 'setUserStatus'), [user_id, status_id]);
+        return { ok: true };
+    },
+
     // CU-04 Gestionar permisos: conceder un metodo a un perfil. Tras escribir en la BD
     // hay que RECARGAR la cache en memoria para que el permiso aplique de inmediato.
     'security.Permission.grantMethod': async (ctx) => {

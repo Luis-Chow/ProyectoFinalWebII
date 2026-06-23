@@ -48,25 +48,33 @@
 
         <!-- Contenido de la pestaña activa. -->
         <div class="tab-content">
-          <!-- Crear cuenta -->
-          <section id="registerBox" class="tabpanel hidden">
-            <h2>Crear cuenta</h2>
-            <form id="formRegister" class="form">
-              <label>Usuario
-                <input type="text" name="user_na" autocomplete="off" required>
-              </label>
-              <label>Contraseña
-                <input type="password" name="user_pw" autocomplete="new-password" required>
-              </label>
-              <small class="hint">Mínimo 8 caracteres, sin espacios, con mayúscula, minúscula y número.</small>
-              <button type="submit">Crear cuenta</button>
-            </form>
-            <p id="registerMsg" class="msg"></p>
+          <!-- Mantenimiento de usuarios: crear cuenta + lista con activar/desactivar (CU-02) -->
+          <section id="userMgmtBox" class="tabpanel hidden">
+            <h2>Mantenimiento de usuarios</h2>
+
+            <div id="createUserBlock">
+              <h3 class="subhead">Crear cuenta</h3>
+              <form id="formRegister" class="form">
+                <label>Usuario
+                  <input type="text" name="user_na" autocomplete="off" required>
+                </label>
+                <label>Contraseña
+                  <input type="password" name="user_pw" autocomplete="new-password" required>
+                </label>
+                <small class="hint">Mínimo 8 caracteres, sin espacios, con mayúscula, minúscula y número.</small>
+                <button type="submit">Crear cuenta</button>
+              </form>
+              <p id="registerMsg" class="msg"></p>
+            </div>
+
+            <h3 class="subhead">Usuarios</h3>
+            <p id="usersMsg" class="msg"></p>
+            <div id="usersList" class="list"></div>
           </section>
 
-          <!-- Perfiles de usuarios -->
+          <!-- Asignar perfiles a usuarios (CU-03) -->
           <section id="manageBox" class="tabpanel hidden">
-            <h2>Perfiles de usuarios</h2>
+            <h2>Asignar perfiles a usuarios</h2>
             <label>Usuario
               <select id="userSelect"></select>
             </label>
@@ -81,19 +89,9 @@
             <div id="userProfilesList" class="list"></div>
           </section>
 
-          <!-- Listar usuarios -->
-          <section id="listBox" class="tabpanel hidden">
-            <h2>Listar usuarios</h2>
-            <div class="panel-actions">
-              <button id="btnListUsers" type="button">Ejecutar listUsers</button>
-            </div>
-            <p id="resultMsg" class="msg"></p>
-            <div id="resultList" class="list"></div>
-          </section>
-
-          <!-- Gestionar permisos (CU-04) -->
+          <!-- Asignar permisos (CU-04) -->
           <section id="permBox" class="tabpanel hidden">
-            <h2>Gestionar permisos (métodos por perfil)</h2>
+            <h2>Asignar permisos (métodos por perfil)</h2>
             <label>Perfil
               <select id="permProfileSelect"></select>
             </label>

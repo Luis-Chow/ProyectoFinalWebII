@@ -30,6 +30,8 @@ const MANAGE_PERMS_J = { subsystem: 'security', objectName: 'Permission', method
 const LIST_USERS_J = { subsystem: 'security', objectName: 'User', methodName: 'listUsers' };
 // Permiso para el mantenimiento de perfiles (CRUD de profile).
 const CRUD_PROFILES_J = { subsystem: 'security', objectName: 'Profile', methodName: 'insertProfile' };
+// Permiso para activar/desactivar usuarios (decide si se muestran los toggles de estado).
+const MANAGE_USERS_J = { subsystem: 'security', objectName: 'User', methodName: 'setUserStatus' };
 
 // Subsistemas a los que el perfil activo tiene acceso (al menos un metodo permitido).
 // Es la "subsystem list" que la pizarra entrega tras el login.
@@ -47,7 +49,8 @@ const AUDIT_ACTIONS = {
     revokeMethod: 'delete',
     insertProfile: 'insert',
     updateProfile: 'update',
-    deleteProfile: 'delete'
+    deleteProfile: 'delete',
+    setUserStatus: 'update'
 };
 
 // Arma una descripcion legible de los params SIN exponer secretos (la contraseña nunca
@@ -80,7 +83,8 @@ async function withPermissions(data) {
         canManageProfiles: global.sec.getPermissionMethod(MANAGE_PROFILES_J, data.profile_id),
         canManagePermissions: global.sec.getPermissionMethod(MANAGE_PERMS_J, data.profile_id),
         canListUsers: global.sec.getPermissionMethod(LIST_USERS_J, data.profile_id),
-        canCrudProfiles: global.sec.getPermissionMethod(CRUD_PROFILES_J, data.profile_id)
+        canCrudProfiles: global.sec.getPermissionMethod(CRUD_PROFILES_J, data.profile_id),
+        canManageUsers: global.sec.getPermissionMethod(MANAGE_USERS_J, data.profile_id)
     };
 }
 
@@ -268,6 +272,7 @@ app.post('/toProcess', async (req, res) => {
             ['model', 'seedObjectProfile'],
             ['model', 'seedMethodListUsers'],
             ['model', 'seedMethodInsertUser'],
+            ['model', 'seedMethodSetUserStatus'],
             ['model', 'seedMethodListProfiles'],
             ['model', 'seedMethodListUserProfiles'],
             ['model', 'seedMethodAddUserProfile'],
@@ -280,6 +285,7 @@ app.post('/toProcess', async (req, res) => {
             ['model', 'seedMethodDeleteProfile'],
             ['model', 'seedPermAdminListUsers'],
             ['model', 'seedPermAdminInsertUser'],
+            ['model', 'seedPermAdminSetUserStatus'],
             ['model', 'seedPermAdminListProfiles'],
             ['model', 'seedPermAdminListUserProfiles'],
             ['model', 'seedPermAdminAddUserProfile'],
