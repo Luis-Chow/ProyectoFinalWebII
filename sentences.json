@@ -1,45 +1,65 @@
 {
   "security": {
-    "createUserTable": "CREATE TABLE IF NOT EXISTS users (user_id SERIAL PRIMARY KEY, user_na VARCHAR(50) UNIQUE NOT NULL, user_pw VARCHAR(255) NOT NULL, profile_id INT DEFAULT 1, status_id INT DEFAULT 1, person_id INT)",
-    "getUser": "SELECT user_id, user_na, user_pw, profile_id, status_id, person_id FROM users WHERE user_na = $1 AND user_pw = $2",
-    "insertUser": "INSERT INTO users (user_na, user_pw, profile_id, status_id) VALUES ($1, $2, $3, $4) RETURNING user_id",
-    "listUsers": "SELECT u.user_id, u.user_na, p.profile_na FROM users u INNER JOIN profile p ON p.profile_id = u.profile_id ORDER BY u.user_id ASC",
-    "listProfiles": "SELECT profile_id, profile_na FROM profile ORDER BY profile_id ASC",
-    "listUserProfiles": "SELECT p.profile_id, p.profile_na FROM user_profile up INNER JOIN profile p ON p.profile_id = up.profile_id WHERE up.user_id = $1 ORDER BY p.profile_id ASC",
-    "addUserProfile": "INSERT INTO user_profile (user_id, profile_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+    "getUser": "SELECT user_id, user_na, user_pw, status_id FROM \"user\" WHERE user_na = $1 AND user_pw = $2",
+    "insertUser": "INSERT INTO \"user\" (user_na, user_pw, status_id) VALUES ($1, $2, $3) RETURNING user_id",
+    "listUsers": "SELECT u.user_id, u.user_na, COALESCE(string_agg(p.profile_de, ', ' ORDER BY p.profile_id), '—') AS profiles FROM \"user\" u LEFT JOIN user_profile up ON up.user_id = u.user_id LEFT JOIN profile p ON p.profile_id = up.profile_id GROUP BY u.user_id, u.user_na ORDER BY u.user_id ASC",
+    "listProfiles": "SELECT profile_id, profile_de FROM profile ORDER BY profile_id ASC",
+    "listUserProfiles": "SELECT p.profile_id, p.profile_de FROM user_profile up INNER JOIN profile p ON p.profile_id = up.profile_id WHERE up.user_id = $1 ORDER BY p.profile_id ASC",
+    "addUserProfile": "INSERT INTO user_profile (user_id, profile_id) VALUES ($1, $2) ON CONFLICT (user_id, profile_id) DO NOTHING",
     "removeUserProfile": "DELETE FROM user_profile WHERE user_id = $1 AND profile_id = $2"
   },
   "model": {
-    "createProfile": "CREATE TABLE IF NOT EXISTS profile (profile_id SERIAL PRIMARY KEY, profile_na VARCHAR(50) UNIQUE NOT NULL)",
-    "createSubsystem": "CREATE TABLE IF NOT EXISTS subsystem (subsystem_id SERIAL PRIMARY KEY, subsystem_na VARCHAR(50) UNIQUE NOT NULL)",
-    "createObject": "CREATE TABLE IF NOT EXISTS object (object_id SERIAL PRIMARY KEY, object_na VARCHAR(50) NOT NULL, subsystem_id INT NOT NULL REFERENCES subsystem(subsystem_id))",
-    "createMethod": "CREATE TABLE IF NOT EXISTS method (method_id SERIAL PRIMARY KEY, method_na VARCHAR(50) NOT NULL, object_id INT NOT NULL REFERENCES object(object_id))",
-    "createOption": "CREATE TABLE IF NOT EXISTS option (option_id SERIAL PRIMARY KEY, option_na VARCHAR(50) NOT NULL, object_id INT NOT NULL REFERENCES object(object_id))",
-    "createPermissionMethod": "CREATE TABLE IF NOT EXISTS permission_method (profile_id INT NOT NULL REFERENCES profile(profile_id), method_id INT NOT NULL REFERENCES method(method_id), PRIMARY KEY (profile_id, method_id))",
-    "createPermissionOption": "CREATE TABLE IF NOT EXISTS permission_option (profile_id INT NOT NULL REFERENCES profile(profile_id), option_id INT NOT NULL REFERENCES option(option_id), PRIMARY KEY (profile_id, option_id))",
-    "createUserProfile": "CREATE TABLE IF NOT EXISTS user_profile (user_id INT NOT NULL REFERENCES users(user_id), profile_id INT NOT NULL REFERENCES profile(profile_id), PRIMARY KEY (user_id, profile_id))",
-    "loadPermissionMethod": "SELECT pm.profile_id, m.method_na, o.object_na, s.subsystem_na FROM permission_method pm INNER JOIN method m ON m.method_id = pm.method_id INNER JOIN object o ON o.object_id = m.object_id INNER JOIN subsystem s ON s.subsystem_id = o.subsystem_id",
-    "loadPermissionOption": "SELECT po.profile_id, op.option_na, s.subsystem_na FROM permission_option po INNER JOIN option op ON op.option_id = po.option_id INNER JOIN object o ON o.object_id = op.object_id INNER JOIN subsystem s ON s.subsystem_id = o.subsystem_id",
-    "insertUserProfile": "INSERT INTO user_profile (user_id, profile_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
-    "seedProfileAdmin": "INSERT INTO profile (profile_id, profile_na) VALUES (1, 'Administrador') ON CONFLICT (profile_id) DO NOTHING",
-    "seedProfileEmpleado": "INSERT INTO profile (profile_id, profile_na) VALUES (2, 'Empleado') ON CONFLICT (profile_id) DO UPDATE SET profile_na = EXCLUDED.profile_na",
-    "seedSubsystemSecurity": "INSERT INTO subsystem (subsystem_id, subsystem_na) VALUES (1, 'security') ON CONFLICT (subsystem_id) DO NOTHING",
-    "seedObjectUser": "INSERT INTO object (object_id, object_na, subsystem_id) VALUES (1, 'User', 1) ON CONFLICT (object_id) DO NOTHING",
-    "seedMethodListUsers": "INSERT INTO method (method_id, method_na, object_id) VALUES (1, 'listUsers', 1) ON CONFLICT (method_id) DO NOTHING",
-    "seedMethodRegister": "INSERT INTO method (method_id, method_na, object_id) VALUES (2, 'insertUser', 1) ON CONFLICT (method_id) DO NOTHING",
-    "seedPermAdminListUsers": "INSERT INTO permission_method (profile_id, method_id) VALUES (1, 1) ON CONFLICT DO NOTHING",
-    "seedPermAdminRegister": "INSERT INTO permission_method (profile_id, method_id) VALUES (1, 2) ON CONFLICT DO NOTHING",
-    "seedUserAdmin": "INSERT INTO users (user_na, user_pw, profile_id, status_id) VALUES ('admin1', 'Admin123', 1, 1) ON CONFLICT (user_na) DO NOTHING",
-    "seedUserEmpleado": "INSERT INTO users (user_na, user_pw, profile_id, status_id) VALUES ('empleado1', 'Empleado123', 2, 1) ON CONFLICT (user_na) DO NOTHING",
-    "seedUserProfile": "INSERT INTO user_profile (user_id, profile_id) SELECT user_id, profile_id FROM users ON CONFLICT DO NOTHING",
-    "seedObjectUserProfile": "INSERT INTO object (object_id, object_na, subsystem_id) VALUES (2, 'UserProfile', 1) ON CONFLICT (object_id) DO NOTHING",
-    "seedMethodListProfiles": "INSERT INTO method (method_id, method_na, object_id) VALUES (3, 'listProfiles', 2) ON CONFLICT (method_id) DO NOTHING",
-    "seedMethodListUserProfiles": "INSERT INTO method (method_id, method_na, object_id) VALUES (4, 'listUserProfiles', 2) ON CONFLICT (method_id) DO NOTHING",
-    "seedMethodAddUserProfile": "INSERT INTO method (method_id, method_na, object_id) VALUES (5, 'addUserProfile', 2) ON CONFLICT (method_id) DO NOTHING",
-    "seedMethodRemoveUserProfile": "INSERT INTO method (method_id, method_na, object_id) VALUES (6, 'removeUserProfile', 2) ON CONFLICT (method_id) DO NOTHING",
-    "seedPermAdminListProfiles": "INSERT INTO permission_method (profile_id, method_id) VALUES (1, 3) ON CONFLICT DO NOTHING",
-    "seedPermAdminListUserProfiles": "INSERT INTO permission_method (profile_id, method_id) VALUES (1, 4) ON CONFLICT DO NOTHING",
-    "seedPermAdminAddUserProfile": "INSERT INTO permission_method (profile_id, method_id) VALUES (1, 5) ON CONFLICT DO NOTHING",
-    "seedPermAdminRemoveUserProfile": "INSERT INTO permission_method (profile_id, method_id) VALUES (1, 6) ON CONFLICT DO NOTHING"
+    "dropAll": "DROP TABLE IF EXISTS audit, permission_method, permission_option, user_profile, method, option, object, sub_system, subsystem, \"user\", users, profile, status CASCADE",
+
+    "createStatus": "CREATE TABLE IF NOT EXISTS status (status_id SERIAL PRIMARY KEY, status_de VARCHAR(50) NOT NULL)",
+    "createProfile": "CREATE TABLE IF NOT EXISTS profile (profile_id SERIAL PRIMARY KEY, profile_de VARCHAR(50) NOT NULL)",
+    "createSubSystem": "CREATE TABLE IF NOT EXISTS sub_system (sub_system_id SERIAL PRIMARY KEY, sub_system_de VARCHAR(50) NOT NULL)",
+    "createObject": "CREATE TABLE IF NOT EXISTS object (object_id SERIAL PRIMARY KEY, object_de VARCHAR(50) UNIQUE NOT NULL, sub_system_id INT NOT NULL REFERENCES sub_system(sub_system_id) ON DELETE CASCADE)",
+    "createMethod": "CREATE TABLE IF NOT EXISTS method (method_id SERIAL PRIMARY KEY, method_de VARCHAR(50) NOT NULL, object_id INT NOT NULL REFERENCES object(object_id) ON DELETE CASCADE)",
+    "createOption": "CREATE TABLE IF NOT EXISTS option (option_id SERIAL PRIMARY KEY, option_de VARCHAR(50) NOT NULL, sub_system_id INT NOT NULL REFERENCES sub_system(sub_system_id) ON DELETE CASCADE)",
+    "createUser": "CREATE TABLE IF NOT EXISTS \"user\" (user_id SERIAL PRIMARY KEY, user_na VARCHAR(50) UNIQUE NOT NULL, user_pw VARCHAR(255) NOT NULL, status_id INT NOT NULL REFERENCES status(status_id))",
+    "createUserProfile": "CREATE TABLE IF NOT EXISTS user_profile (user_profile_id SERIAL PRIMARY KEY, user_id INT NOT NULL REFERENCES \"user\"(user_id) ON DELETE CASCADE, profile_id INT NOT NULL REFERENCES profile(profile_id) ON DELETE CASCADE, UNIQUE (user_id, profile_id))",
+    "createPermissionMethod": "CREATE TABLE IF NOT EXISTS permission_method (permission_method_id SERIAL PRIMARY KEY, profile_id INT NOT NULL REFERENCES profile(profile_id) ON DELETE CASCADE, method_id INT NOT NULL REFERENCES method(method_id) ON DELETE CASCADE, UNIQUE (profile_id, method_id))",
+    "createPermissionOption": "CREATE TABLE IF NOT EXISTS permission_option (permission_option_id SERIAL PRIMARY KEY, profile_id INT NOT NULL REFERENCES profile(profile_id) ON DELETE CASCADE, option_id INT NOT NULL REFERENCES option(option_id) ON DELETE CASCADE, UNIQUE (profile_id, option_id))",
+    "createAudit": "CREATE TABLE IF NOT EXISTS audit (id SERIAL PRIMARY KEY, user_id INT NOT NULL REFERENCES \"user\"(user_id) ON DELETE CASCADE, date DATE NOT NULL, hour TIME NOT NULL, action VARCHAR(50) NOT NULL, description TEXT)",
+
+    "loadPermissionMethod": "SELECT pm.profile_id, m.method_de, o.object_de, s.sub_system_de FROM permission_method pm INNER JOIN method m ON m.method_id = pm.method_id INNER JOIN object o ON o.object_id = m.object_id INNER JOIN sub_system s ON s.sub_system_id = o.sub_system_id",
+    "loadPermissionOption": "SELECT po.profile_id, op.option_de, s.sub_system_de FROM permission_option po INNER JOIN option op ON op.option_id = po.option_id INNER JOIN sub_system s ON s.sub_system_id = op.sub_system_id",
+
+    "insertUserProfile": "INSERT INTO user_profile (user_id, profile_id) VALUES ($1, $2) ON CONFLICT (user_id, profile_id) DO NOTHING",
+    "insertAudit": "INSERT INTO audit (user_id, date, hour, action, description) VALUES ($1, CURRENT_DATE, LOCALTIME, $2, $3)",
+
+    "seedStatusActivo": "INSERT INTO status (status_id, status_de) VALUES (1, 'Activo') ON CONFLICT (status_id) DO UPDATE SET status_de = EXCLUDED.status_de",
+    "seedStatusInactivo": "INSERT INTO status (status_id, status_de) VALUES (2, 'Inactivo') ON CONFLICT (status_id) DO UPDATE SET status_de = EXCLUDED.status_de",
+
+    "seedProfileAdmin": "INSERT INTO profile (profile_id, profile_de) VALUES (1, 'Administrador') ON CONFLICT (profile_id) DO UPDATE SET profile_de = EXCLUDED.profile_de",
+    "seedProfileEmpleado": "INSERT INTO profile (profile_id, profile_de) VALUES (2, 'Empleado') ON CONFLICT (profile_id) DO UPDATE SET profile_de = EXCLUDED.profile_de",
+    "seedProfileLider": "INSERT INTO profile (profile_id, profile_de) VALUES (3, 'Líder de proyecto') ON CONFLICT (profile_id) DO UPDATE SET profile_de = EXCLUDED.profile_de",
+
+    "seedSubSystemSecurity": "INSERT INTO sub_system (sub_system_id, sub_system_de) VALUES (1, 'security') ON CONFLICT (sub_system_id) DO NOTHING",
+
+    "seedObjectUser": "INSERT INTO object (object_id, object_de, sub_system_id) VALUES (1, 'User', 1) ON CONFLICT (object_id) DO NOTHING",
+    "seedObjectUserProfile": "INSERT INTO object (object_id, object_de, sub_system_id) VALUES (2, 'UserProfile', 1) ON CONFLICT (object_id) DO NOTHING",
+
+    "seedMethodListUsers": "INSERT INTO method (method_id, method_de, object_id) VALUES (1, 'listUsers', 1) ON CONFLICT (method_id) DO NOTHING",
+    "seedMethodInsertUser": "INSERT INTO method (method_id, method_de, object_id) VALUES (2, 'insertUser', 1) ON CONFLICT (method_id) DO NOTHING",
+    "seedMethodListProfiles": "INSERT INTO method (method_id, method_de, object_id) VALUES (3, 'listProfiles', 2) ON CONFLICT (method_id) DO NOTHING",
+    "seedMethodListUserProfiles": "INSERT INTO method (method_id, method_de, object_id) VALUES (4, 'listUserProfiles', 2) ON CONFLICT (method_id) DO NOTHING",
+    "seedMethodAddUserProfile": "INSERT INTO method (method_id, method_de, object_id) VALUES (5, 'addUserProfile', 2) ON CONFLICT (method_id) DO NOTHING",
+    "seedMethodRemoveUserProfile": "INSERT INTO method (method_id, method_de, object_id) VALUES (6, 'removeUserProfile', 2) ON CONFLICT (method_id) DO NOTHING",
+
+    "seedPermAdminListUsers": "INSERT INTO permission_method (profile_id, method_id) VALUES (1, 1) ON CONFLICT (profile_id, method_id) DO NOTHING",
+    "seedPermAdminInsertUser": "INSERT INTO permission_method (profile_id, method_id) VALUES (1, 2) ON CONFLICT (profile_id, method_id) DO NOTHING",
+    "seedPermAdminListProfiles": "INSERT INTO permission_method (profile_id, method_id) VALUES (1, 3) ON CONFLICT (profile_id, method_id) DO NOTHING",
+    "seedPermAdminListUserProfiles": "INSERT INTO permission_method (profile_id, method_id) VALUES (1, 4) ON CONFLICT (profile_id, method_id) DO NOTHING",
+    "seedPermAdminAddUserProfile": "INSERT INTO permission_method (profile_id, method_id) VALUES (1, 5) ON CONFLICT (profile_id, method_id) DO NOTHING",
+    "seedPermAdminRemoveUserProfile": "INSERT INTO permission_method (profile_id, method_id) VALUES (1, 6) ON CONFLICT (profile_id, method_id) DO NOTHING",
+
+    "seedUserAdmin": "INSERT INTO \"user\" (user_na, user_pw, status_id) VALUES ('admin1', 'Admin123', 1) ON CONFLICT (user_na) DO NOTHING",
+    "seedUserEmpleado": "INSERT INTO \"user\" (user_na, user_pw, status_id) VALUES ('empleado1', 'Empleado123', 1) ON CONFLICT (user_na) DO NOTHING",
+
+    "seedUserProfileAdmin": "INSERT INTO user_profile (user_id, profile_id) SELECT u.user_id, 1 FROM \"user\" u WHERE u.user_na = 'admin1' ON CONFLICT (user_id, profile_id) DO NOTHING",
+    "seedUserProfileAdminLider": "INSERT INTO user_profile (user_id, profile_id) SELECT u.user_id, 3 FROM \"user\" u WHERE u.user_na = 'admin1' ON CONFLICT (user_id, profile_id) DO NOTHING",
+    "seedUserProfileEmpleado": "INSERT INTO user_profile (user_id, profile_id) SELECT u.user_id, 2 FROM \"user\" u WHERE u.user_na = 'empleado1' ON CONFLICT (user_id, profile_id) DO NOTHING"
   }
 }

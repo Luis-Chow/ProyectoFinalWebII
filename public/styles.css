@@ -218,6 +218,58 @@ button[type="submit"]:hover,
   display: none;
 }
 
+/* ---- Pantalla "Perfiles" (selección de perfil activo tras el login) ---- */
+.select-title {
+  font-size: 1.15rem;
+  margin-bottom: 6px;
+  text-align: center;
+  color: #e4e6eb;
+}
+
+#profileSelect .hint {
+  text-align: center;
+  margin-top: 0;
+}
+
+.profile-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.profile-card {
+  padding: 16px;
+  border: 1px solid #3e4042;
+  border-radius: 10px;
+  background: #1e1f20;
+  color: #e4e6eb;
+  font-size: 1rem;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color .15s, background .15s;
+}
+
+.profile-card:hover {
+  border-color: #2d88ff;
+  background: #2a2b2c;
+}
+
+#btnCancelProfile {
+  width: 100%;
+  padding: 11px;
+  border: none;
+  border-radius: 8px;
+  background: #3a3b3c;
+  color: #e4e6eb;
+  font-size: .95rem;
+  cursor: pointer;
+}
+
+#btnCancelProfile:hover {
+  background: #4e4f50;
+}
+
 select {
   padding: 10px;
   border: 1px solid #3e4042;

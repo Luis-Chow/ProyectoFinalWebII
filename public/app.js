@@ -4,6 +4,8 @@ const formLogin = $('#formLogin');
 const formRegister = $('#formRegister');
 const registerBox = $('#registerBox');
 const registerMsg = $('#registerMsg');
+const profileSelect = $('#profileSelect');
+const profileButtons = $('#profileButtons');
 const panel = $('#panel');
 const msg = $('#msg');
 const title = document.querySelector('h1');
@@ -54,13 +56,13 @@ function showManageMsg(text, ok = true) {
   manageMsg.className = 'msg ' + (ok ? 'ok' : 'error');
 }
 
-// Rellena un <select> con perfiles [{profile_id, profile_na}].
+// Rellena un <select> con perfiles [{profile_id, profile_de}].
 function fillProfileOptions(select, profiles) {
   select.innerHTML = '';
   for (const p of profiles) {
     const opt = document.createElement('option');
     opt.value = p.profile_id;
-    opt.textContent = p.profile_na;
+    opt.textContent = p.profile_de;
     select.appendChild(opt);
   }
 }
@@ -96,7 +98,7 @@ async function refreshUserProfiles() {
     nameSpan.textContent = `perfil #${p.profile_id}`;
     const profSpan = document.createElement('span');
     profSpan.className = 'tag';
-    profSpan.textContent = p.profile_na;
+    profSpan.textContent = p.profile_de;
     item.appendChild(nameSpan);
     item.appendChild(profSpan);
     userProfilesList.appendChild(item);
@@ -111,12 +113,43 @@ function setRegisterEnabled(enabled) {
   }
 }
 
+// Muestra la pantalla "Perfiles" para que el usuario elija el perfil activo.
+function renderProfileSelect(profiles) {
+  title.classList.add('hidden');
+  formLogin.classList.add('hidden');
+  panel.classList.add('hidden');
+  msg.classList.add('hidden');
+  profileSelect.classList.remove('hidden');
+  profileButtons.innerHTML = '';
+  for (const p of profiles) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'profile-card';
+    btn.textContent = p.profile_de;
+    btn.addEventListener('click', async () => {
+      const { ok, data } = await api('/selectProfile', {
+        method: 'POST',
+        body: JSON.stringify({ profile_id: p.profile_id })
+      });
+      if (ok) {
+        profileSelect.classList.add('hidden');
+        renderSession(data.objectSession);
+      } else {
+        msg.classList.remove('hidden');
+        showMsg(data.msg || 'No se pudo seleccionar el perfil.', false);
+      }
+    });
+    profileButtons.appendChild(btn);
+  }
+}
+
 function renderSession(session) {
   title.classList.add('hidden');
   formLogin.classList.add('hidden');
+  profileSelect.classList.add('hidden');
   msg.classList.add('hidden');
   panel.classList.remove('hidden');
-  whoami.textContent = `Conectado como ${session.user_na} (perfil ${session.profile_id})`;
+  whoami.textContent = `Conectado como ${session.user_na} (${session.profile_de})`;
   // El bloque se muestra a todos, pero solo se habilita si la BD le concede el permiso.
   const canRegister = !!session.canRegister;
   registerBox.classList.remove('hidden');
@@ -139,6 +172,7 @@ function renderSession(session) {
 
 function renderLoggedOut() {
   panel.classList.add('hidden');
+  profileSelect.classList.add('hidden');
   registerBox.classList.add('hidden');
   title.classList.remove('hidden');
   formLogin.classList.remove('hidden');
@@ -168,8 +202,19 @@ formLogin.addEventListener('submit', async (e) => {
   showMsg(data.msg, ok);
   if (ok) {
     formLogin.reset();
-    renderSession(data.objectSession);
+    // ready=true -> entro directo (un solo perfil). ready=false -> pantalla "Perfiles".
+    if (data.ready) {
+      renderSession(data.objectSession);
+    } else {
+      renderProfileSelect(data.profiles);
+    }
   }
+});
+
+// Cancelar la seleccion de perfil = cerrar la sesion a medias y volver al login.
+$('#btnCancelProfile').addEventListener('click', async () => {
+  await api('/logout', { method: 'POST' });
+  renderLoggedOut();
 });
 
 $('#btnLogout').addEventListener('click', async () => {
@@ -187,7 +232,7 @@ function renderUsers(rows) {
     nameSpan.textContent = `#${u.user_id} · ${u.user_na}`;
     const profSpan = document.createElement('span');
     profSpan.className = 'tag';
-    profSpan.textContent = u.profile_na;
+    profSpan.textContent = u.profiles;
     item.appendChild(nameSpan);
     item.appendChild(profSpan);
     resultList.appendChild(item);
@@ -230,7 +275,13 @@ $('#btnRemove').addEventListener('click', async () => {
 });
 
 // Al recargar la pagina, restaura la sesion si la cookie sigue viva.
+// Si quedo a medias (sin perfil elegido), reanuda en la pantalla "Perfiles".
 (async () => {
   const { ok, data } = await api('/me');
-  if (ok && data.objectSession) renderSession(data.objectSession);
+  if (!ok) return;
+  if (data.ready && data.objectSession) {
+    renderSession(data.objectSession);
+  } else if (data.ready === false && data.profiles) {
+    renderProfileSelect(data.profiles);
+  }
 })();

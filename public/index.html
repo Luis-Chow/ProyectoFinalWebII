@@ -20,6 +20,15 @@
       <button type="submit">Entrar</button>
     </form>
 
+    <!-- Pantalla "Perfiles": aparece tras el login cuando el usuario tiene mas de un perfil.
+         Elegir un perfil fija el perfil ACTIVO con el que se resolveran los permisos. -->
+    <section id="profileSelect" class="panel hidden">
+      <h2 class="select-title">Selecciona tu perfil</h2>
+      <p class="hint">Tu usuario tiene varios perfiles. Elige con cuál deseas trabajar en esta sesión.</p>
+      <div id="profileButtons" class="profile-grid"></div>
+      <button id="btnCancelProfile" type="button" class="secondary">Cancelar</button>
+    </section>
+
     <section id="panel" class="panel hidden">
       <div class="panel-top">
         <p id="whoami" class="whoami"></p>

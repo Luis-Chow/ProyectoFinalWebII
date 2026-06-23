@@ -28,10 +28,11 @@ const businessMethods = {
         const STATUS_ACTIVO = 1;
 
         // 3) Transaccion: el usuario y su user_profile se crean juntos, o no se crea nada.
+        //    En el modelo nuevo "user" no tiene profile_id: el perfil vive en user_profile.
         try {
             return await ctx.tx(async (q) => {
                 const rows = await q(global.dbc.getSentence('security', 'insertUser'),
-                    [user_na, user_pw, PROFILE_EMPLEADO, STATUS_ACTIVO]);
+                    [user_na, user_pw, STATUS_ACTIVO]);
                 const newUserId = rows[0].user_id;
                 await q(global.dbc.getSentence('model', 'insertUserProfile'), [newUserId, PROFILE_EMPLEADO]);
                 return { user_id: newUserId };
@@ -53,14 +54,14 @@ const Security = class {
         this.loadPermissionOption();
     }
 
-    // BD -> Map. Key: subsystem_na-object_na-method_na-profile_id, value: true
+    // BD -> Map. Key: sub_system_de-object_de-method_de-profile_id, value: true
     async loadPermissionMethod() {
         try {
             const sentence = global.dbc.getSentence('model', 'loadPermissionMethod');
             const rows = await global.dbc.exeQuery(sentence);
             this.permissionMethodMap.clear();
             for (const r of rows) {
-                const key = buildKey(r.subsystem_na, r.object_na, r.method_na, r.profile_id);
+                const key = buildKey(r.sub_system_de, r.object_de, r.method_de, r.profile_id);
                 this.permissionMethodMap.set(key, true);
             }
             console.log(`Seguridad: ${this.permissionMethodMap.size} permiso(s) de metodo en cache.`);
@@ -69,14 +70,14 @@ const Security = class {
         }
     }
 
-    // BD -> Map. Key: subsystem_na-option_na-profile_id, value: true
+    // BD -> Map. Key: sub_system_de-option_de-profile_id, value: true
     async loadPermissionOption() {
         try {
             const sentence = global.dbc.getSentence('model', 'loadPermissionOption');
             const rows = await global.dbc.exeQuery(sentence);
             this.permissionOptionMap.clear();
             for (const r of rows) {
-                const key = buildKey(r.subsystem_na, r.option_na, r.profile_id);
+                const key = buildKey(r.sub_system_de, r.option_de, r.profile_id);
                 this.permissionOptionMap.set(key, true);
             }
             console.log(`Seguridad: ${this.permissionOptionMap.size} permiso(s) de opcion en cache.`);
