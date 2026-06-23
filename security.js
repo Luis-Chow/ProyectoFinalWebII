@@ -87,6 +87,32 @@ const businessMethods = {
         return { revoked: true };
     },
 
+    // CU-04 (opciones): conceder una opcion de menu a un perfil. Recarga la cache de opciones.
+    'security.Permission.grantOption': async (ctx) => {
+        const [profile_id, option_id] = ctx.params || [];
+        if (!profile_id || !option_id) throw new AppError(400, 'Faltan profile_id o option_id.');
+        await global.dbc.exeQuery(global.dbc.getSentence('security', 'grantOption'), [profile_id, option_id]);
+        await global.sec.loadPermissionOption();
+        return { granted: true };
+    },
+
+    // CU-04 (opciones): quitar una opcion de menu a un perfil. Candado: no puedes ocultarte
+    // a ti mismo (perfil activo) el menu de "Asignar permisos" (option_de = permBox).
+    'security.Permission.revokeOption': async (ctx) => {
+        const [profile_id, option_id] = ctx.params || [];
+        if (!profile_id || !option_id) throw new AppError(400, 'Faltan profile_id o option_id.');
+        const activeProfile = ctx.session && ctx.session.profile_id;
+        if (Number(profile_id) === Number(activeProfile)) {
+            const r = await global.dbc.exeQuery(global.dbc.getSentence('security', 'getOptionDe'), [option_id]);
+            if (r[0] && r[0].option_de === 'permBox') {
+                throw new AppError(409, 'No puedes ocultarte a ti mismo el menú de Asignar permisos.');
+            }
+        }
+        await global.dbc.exeQuery(global.dbc.getSentence('security', 'revokeOption'), [profile_id, option_id]);
+        await global.sec.loadPermissionOption();
+        return { revoked: true };
+    },
+
     // Mantenimiento de perfiles: eliminar un perfil. Candado: no se puede borrar un perfil
     // que aun tiene usuarios asignados (quedarian sin rol y sin poder iniciar sesion).
     // Al borrarlo, sus filas en permission_method/permission_option caen por CASCADE -> recargar.

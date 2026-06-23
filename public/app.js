@@ -24,6 +24,7 @@ const userProfilesList = $('#userProfilesList');
 const permProfileSelect = $('#permProfileSelect');
 const permMsg = $('#permMsg');
 const permList = $('#permList');
+const permOptionList = $('#permOptionList');
 const formProfile = $('#formProfile');
 const profileCrudMsg = $('#profileCrudMsg');
 const profileCrudList = $('#profileCrudList');
@@ -135,6 +136,51 @@ async function loadPermData() {
   const profRes = await toProcess('UserProfile', 'listProfiles', []);
   if (profRes.ok) fillProfileOptions(permProfileSelect, profRes.data.data);
   await refreshPermList();
+  await refreshPermOptions();
+}
+
+// Etiqueta legible de una opcion de menu (option_de = id de la pestaña).
+function optionLabel(option_de) {
+  const tab = TABS.find((t) => t.id === option_de);
+  return tab ? tab.label : option_de;
+}
+
+// Lista las opciones (menus) con un toggle de concedido por perfil. Si el cambio afecta
+// MI propio perfil activo, refresco la sesion y las pestañas en vivo.
+async function refreshPermOptions() {
+  const profile_id = Number(permProfileSelect.value);
+  permOptionList.innerHTML = '';
+  if (!profile_id) return;
+  const res = await toProcess('Permission', 'listPermissionOptions', [profile_id]);
+  if (!res.ok) { showPermMsg(res.data.msg || 'Error.', false); return; }
+  for (const o of res.data.data) {
+    const item = document.createElement('div');
+    item.className = 'item';
+    const label = document.createElement('span');
+    label.textContent = optionLabel(o.option_de);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = o.granted ? 'perm-on' : 'perm-off';
+    btn.textContent = o.granted ? 'Visible' : 'Oculto';
+    btn.addEventListener('click', async () => {
+      const methodName = o.granted ? 'revokeOption' : 'grantOption';
+      const r = await toProcess('Permission', methodName, [profile_id, o.option_id]);
+      if (!r.ok) { showPermMsg(r.data.msg || 'Error.', false); return; }
+      showPermMsg(o.granted ? 'Menú ocultado.' : 'Menú habilitado.', true);
+      await refreshPermOptions();
+      // Si toqué mis propios menús, refresco sesión + pestañas sin recargar la página.
+      if (profile_id === currentSession.profile_id) {
+        const me = await api('/me');
+        if (me.ok && me.data.objectSession) {
+          currentSession = me.data.objectSession;
+          buildTabs(currentSession);
+        }
+      }
+    });
+    item.appendChild(label);
+    item.appendChild(btn);
+    permOptionList.appendChild(item);
+  }
 }
 
 async function refreshPermList() {
@@ -278,15 +324,21 @@ async function refreshUsersList() {
 }
 
 // Definicion de pestañas: etiqueta, permiso que las habilita, y carga de datos al abrir.
+// Cada pestaña corresponde a una OPCION de menu (option_de = id de la pestaña). Su
+// visibilidad la decide permission_option (session.visibleOptions); las acciones de adentro
+// se siguen validando por metodo en el servidor.
 const TABS = [
-  { id: 'userMgmtBox', label: 'Mantenimiento de usuarios',   can: (s) => s.canListUsers || s.canRegister || s.canManageUsers, load: loadUserMgmt },
-  { id: 'profileBox',  label: 'Mantenimiento de perfiles',   can: (s) => s.canCrudProfiles,      load: loadProfileCrud },
-  { id: 'manageBox',   label: 'Asignar perfiles a usuarios', can: (s) => s.canManageProfiles,    load: loadManageData },
-  { id: 'permBox',     label: 'Asignar permisos',            can: (s) => s.canManagePermissions, load: loadPermData }
+  { id: 'userMgmtBox', label: 'Mantenimiento de usuarios',   load: loadUserMgmt },
+  { id: 'profileBox',  label: 'Mantenimiento de perfiles',   load: loadProfileCrud },
+  { id: 'manageBox',   label: 'Asignar perfiles a usuarios', load: loadManageData },
+  { id: 'permBox',     label: 'Asignar permisos',            load: loadPermData }
 ];
+
+let activeTabId = null;
 
 // Muestra una pestaña: oculta el resto de paneles y marca el boton activo.
 function activateTab(tab) {
+  activeTabId = tab.id;
   for (const t of TABS) $('#' + t.id).classList.add('hidden');
   noActions.classList.add('hidden');
   $('#' + tab.id).classList.remove('hidden');
@@ -296,10 +348,11 @@ function activateTab(tab) {
   if (tab.load) tab.load();
 }
 
-// Construye las pestañas verticales segun los permisos del perfil activo.
+// Construye las pestañas verticales segun los menus visibles (permission_option).
 function buildTabs(session) {
   tabsNav.innerHTML = '';
-  const available = TABS.filter((t) => t.can(session));
+  const visible = session.visibleOptions || [];
+  const available = TABS.filter((t) => visible.includes(t.id));
   for (const t of available) {
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -309,10 +362,11 @@ function buildTabs(session) {
     btn.addEventListener('click', () => activateTab(t));
     tabsNav.appendChild(btn);
   }
-  // Oculta todos los paneles y abre la primera pestaña (o el aviso si no hay ninguna).
   for (const t of TABS) $('#' + t.id).classList.add('hidden');
   if (available.length) {
-    activateTab(available[0]);
+    // Conserva la pestaña activa si sigue visible; si no, abre la primera.
+    const keep = available.find((t) => t.id === activeTabId) || available[0];
+    activateTab(keep);
   } else {
     noActions.classList.remove('hidden');
   }
@@ -476,7 +530,7 @@ $('#btnRemove').addEventListener('click', async () => {
   if (ok) refreshUserProfiles();
 });
 
-permProfileSelect.addEventListener('change', refreshPermList);
+permProfileSelect.addEventListener('change', () => { refreshPermList(); refreshPermOptions(); });
 
 // Al recargar la pagina, restaura la sesion si la cookie sigue viva y reanuda en la
 // seleccion de subsistema.

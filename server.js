@@ -33,10 +33,17 @@ const CRUD_PROFILES_J = { subsystem: 'security', objectName: 'Profile', methodNa
 // Permiso para activar/desactivar usuarios (decide si se muestran los toggles de estado).
 const MANAGE_USERS_J = { subsystem: 'security', objectName: 'User', methodName: 'setUserStatus' };
 
-// Subsistemas a los que el perfil activo tiene acceso (al menos un metodo permitido).
+// Subsistemas a los que el perfil activo tiene acceso (al menos un metodo u opcion permitido).
 // Es la "subsystem list" que la pizarra entrega tras el login.
 async function getSubsystems(profile_id) {
     return await global.dbc.exeQuery(global.dbc.getSentence('security', 'listAccessibleSubsystems'), [profile_id]);
+}
+
+// Opciones de menu visibles para el perfil (permission_option). El front las usa para
+// decidir que pestañas mostrar: opcion = "puede VER este menu".
+async function getVisibleOptions(profile_id) {
+    const rows = await global.dbc.exeQuery(global.dbc.getSentence('security', 'listVisibleOptions'), [profile_id]);
+    return rows.map((r) => r.option_de);
 }
 
 // Auditoria centralizada de /toProcess: que metodo deja que accion en la tabla audit.
@@ -50,7 +57,9 @@ const AUDIT_ACTIONS = {
     insertProfile: 'insert',
     updateProfile: 'update',
     deleteProfile: 'delete',
-    setUserStatus: 'update'
+    setUserStatus: 'update',
+    grantOption: 'insert',
+    revokeOption: 'delete'
 };
 
 // Arma una descripcion legible de los params SIN exponer secretos (la contraseña nunca
@@ -76,6 +85,7 @@ async function audit(ses, action, description) {
 }
 
 // Arma la respuesta de sesion: agrega los permisos (no se guardan en la cookie).
+// visibleOptions = menus que el perfil puede ver (permission_option) -> manejan las pestañas.
 async function withPermissions(data) {
     return {
         ...data,
@@ -84,7 +94,8 @@ async function withPermissions(data) {
         canManagePermissions: global.sec.getPermissionMethod(MANAGE_PERMS_J, data.profile_id),
         canListUsers: global.sec.getPermissionMethod(LIST_USERS_J, data.profile_id),
         canCrudProfiles: global.sec.getPermissionMethod(CRUD_PROFILES_J, data.profile_id),
-        canManageUsers: global.sec.getPermissionMethod(MANAGE_USERS_J, data.profile_id)
+        canManageUsers: global.sec.getPermissionMethod(MANAGE_USERS_J, data.profile_id),
+        visibleOptions: await getVisibleOptions(data.profile_id)
     };
 }
 
@@ -283,6 +294,13 @@ app.post('/toProcess', async (req, res) => {
             ['model', 'seedMethodInsertProfile'],
             ['model', 'seedMethodUpdateProfile'],
             ['model', 'seedMethodDeleteProfile'],
+            ['model', 'seedMethodListPermissionOptions'],
+            ['model', 'seedMethodGrantOption'],
+            ['model', 'seedMethodRevokeOption'],
+            ['model', 'seedOptionUsuarios'],
+            ['model', 'seedOptionPerfiles'],
+            ['model', 'seedOptionAsignarPerfiles'],
+            ['model', 'seedOptionPermisos'],
             ['model', 'seedPermAdminListUsers'],
             ['model', 'seedPermAdminInsertUser'],
             ['model', 'seedPermAdminSetUserStatus'],
@@ -296,6 +314,13 @@ app.post('/toProcess', async (req, res) => {
             ['model', 'seedPermAdminInsertProfile'],
             ['model', 'seedPermAdminUpdateProfile'],
             ['model', 'seedPermAdminDeleteProfile'],
+            ['model', 'seedPermAdminListPermissionOptions'],
+            ['model', 'seedPermAdminGrantOption'],
+            ['model', 'seedPermAdminRevokeOption'],
+            ['model', 'seedPermOptAdminUsuarios'],
+            ['model', 'seedPermOptAdminPerfiles'],
+            ['model', 'seedPermOptAdminAsignarPerfiles'],
+            ['model', 'seedPermOptAdminPermisos'],
             ['model', 'seedUserAdmin'],
             ['model', 'seedUserEmpleado'],
             ['model', 'seedUserProfileAdmin'],

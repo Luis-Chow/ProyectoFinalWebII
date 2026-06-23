@@ -89,15 +89,18 @@
             <div id="userProfilesList" class="list"></div>
           </section>
 
-          <!-- Asignar permisos (CU-04) -->
+          <!-- Asignar permisos (CU-04): métodos (ejecutar) + opciones (ver menús) -->
           <section id="permBox" class="tabpanel hidden">
-            <h2>Asignar permisos (métodos por perfil)</h2>
+            <h2>Asignar permisos</h2>
             <label>Perfil
               <select id="permProfileSelect"></select>
             </label>
-            <small class="hint">Marca qué métodos puede ejecutar el perfil. El cambio aplica al instante.</small>
+            <small class="hint">Métodos = ejecutar acciones · Opciones = ver menús. El cambio aplica al instante.</small>
             <p id="permMsg" class="msg"></p>
+            <h3 class="subhead">Métodos</h3>
             <div id="permList" class="list"></div>
+            <h3 class="subhead">Opciones (menús)</h3>
+            <div id="permOptionList" class="list"></div>
           </section>
 
           <!-- Mantenimiento de perfiles (CRUD de profile) -->
