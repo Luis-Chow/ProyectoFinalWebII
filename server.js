@@ -24,13 +24,17 @@ app.use(express.static(path.join(__dirname, 'public')));
 const REGISTER_J = { subsystem: 'security', objectName: 'User', methodName: 'insertUser' };
 // Permiso para asignar/quitar perfiles a otros usuarios (tambien vive en la BD).
 const MANAGE_PROFILES_J = { subsystem: 'security', objectName: 'UserProfile', methodName: 'addUserProfile' };
+// Permiso para gestionar permisos de metodos por perfil (CU-04).
+const MANAGE_PERMS_J = { subsystem: 'security', objectName: 'Permission', methodName: 'grantMethod' };
 
 // Auditoria centralizada de /toProcess: que metodo deja que accion en la tabla audit.
 // (accion sigue el diseño de la pizarra 4: insert | delete | update.)
 const AUDIT_ACTIONS = {
     insertUser: 'insert',
     addUserProfile: 'insert',
-    removeUserProfile: 'delete'
+    removeUserProfile: 'delete',
+    grantMethod: 'insert',
+    revokeMethod: 'delete'
 };
 
 // Arma una descripcion legible de los params SIN exponer secretos (la contraseña nunca
@@ -60,7 +64,8 @@ async function withPermissions(data) {
     return {
         ...data,
         canRegister: global.sec.getPermissionMethod(REGISTER_J, data.profile_id),
-        canManageProfiles: global.sec.getPermissionMethod(MANAGE_PROFILES_J, data.profile_id)
+        canManageProfiles: global.sec.getPermissionMethod(MANAGE_PROFILES_J, data.profile_id),
+        canManagePermissions: global.sec.getPermissionMethod(MANAGE_PERMS_J, data.profile_id)
     };
 }
 
@@ -232,18 +237,25 @@ app.post('/toProcess', async (req, res) => {
             ['model', 'seedSubSystemSecurity'],
             ['model', 'seedObjectUser'],
             ['model', 'seedObjectUserProfile'],
+            ['model', 'seedObjectPermission'],
             ['model', 'seedMethodListUsers'],
             ['model', 'seedMethodInsertUser'],
             ['model', 'seedMethodListProfiles'],
             ['model', 'seedMethodListUserProfiles'],
             ['model', 'seedMethodAddUserProfile'],
             ['model', 'seedMethodRemoveUserProfile'],
+            ['model', 'seedMethodListPermissionMethods'],
+            ['model', 'seedMethodGrantMethod'],
+            ['model', 'seedMethodRevokeMethod'],
             ['model', 'seedPermAdminListUsers'],
             ['model', 'seedPermAdminInsertUser'],
             ['model', 'seedPermAdminListProfiles'],
             ['model', 'seedPermAdminListUserProfiles'],
             ['model', 'seedPermAdminAddUserProfile'],
             ['model', 'seedPermAdminRemoveUserProfile'],
+            ['model', 'seedPermAdminListPermissionMethods'],
+            ['model', 'seedPermAdminGrantMethod'],
+            ['model', 'seedPermAdminRevokeMethod'],
             ['model', 'seedUserAdmin'],
             ['model', 'seedUserEmpleado'],
             ['model', 'seedUserProfileAdmin'],

@@ -80,6 +80,18 @@
           <div id="resultList" class="list"></div>
         </section>
       </div>
+
+      <!-- CU-04 Gestionar permisos: conceder/quitar metodos a cada perfil. Solo visible a
+           quien tenga el permiso (ver app.js); el servidor lo valida igual. -->
+      <section id="permBox" class="box hidden">
+        <h2>Gestionar permisos (métodos por perfil)</h2>
+        <label>Perfil
+          <select id="permProfileSelect"></select>
+        </label>
+        <small class="hint">Marca qué métodos puede ejecutar el perfil. El cambio aplica al instante.</small>
+        <p id="permMsg" class="msg"></p>
+        <div id="permList" class="list"></div>
+      </section>
     </section>
 
     <p id="msg" class="msg"></p>

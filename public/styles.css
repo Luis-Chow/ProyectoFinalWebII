@@ -218,6 +218,43 @@ button[type="submit"]:hover,
   display: none;
 }
 
+/* ---- CU-04 Gestionar permisos: bloque ancho bajo las columnas ---- */
+#permBox {
+  margin-top: 18px;
+}
+
+#permBox .item {
+  align-items: center;
+}
+
+.perm-on,
+.perm-off {
+  border: none;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: .8rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.perm-on {
+  background: #166534;
+  color: #fff;
+}
+
+.perm-on:hover {
+  background: #15803d;
+}
+
+.perm-off {
+  background: #3a3b3c;
+  color: #b0b3b8;
+}
+
+.perm-off:hover {
+  background: #4e4f50;
+}
+
 /* ---- Pantalla "Perfiles" (selección de perfil activo tras el login) ---- */
 .select-title {
   font-size: 1.15rem;

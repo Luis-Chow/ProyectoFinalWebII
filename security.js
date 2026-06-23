@@ -41,6 +41,25 @@ const businessMethods = {
             if (err.code === '23505') throw new AppError(409, 'El usuario ya existe.');
             throw err;
         }
+    },
+
+    // CU-04 Gestionar permisos: conceder un metodo a un perfil. Tras escribir en la BD
+    // hay que RECARGAR la cache en memoria para que el permiso aplique de inmediato.
+    'security.Permission.grantMethod': async (ctx) => {
+        const [profile_id, method_id] = ctx.params || [];
+        if (!profile_id || !method_id) throw new AppError(400, 'Faltan profile_id o method_id.');
+        await global.dbc.exeQuery(global.dbc.getSentence('security', 'grantMethod'), [profile_id, method_id]);
+        await global.sec.loadPermissionMethod();   // refresca el Map de permisos
+        return { granted: true };
+    },
+
+    // CU-04: quitar un metodo a un perfil (+ recarga de cache).
+    'security.Permission.revokeMethod': async (ctx) => {
+        const [profile_id, method_id] = ctx.params || [];
+        if (!profile_id || !method_id) throw new AppError(400, 'Faltan profile_id o method_id.');
+        await global.dbc.exeQuery(global.dbc.getSentence('security', 'revokeMethod'), [profile_id, method_id]);
+        await global.sec.loadPermissionMethod();   // refresca el Map de permisos
+        return { revoked: true };
     }
     // 👉 Aqui viviran mas adelante insertProject, insertActivity, insertNotification...
 };

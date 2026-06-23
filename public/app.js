@@ -17,6 +17,10 @@ const userSelect = $('#userSelect');
 const profileAssignSelect = $('#profileAssignSelect');
 const manageMsg = $('#manageMsg');
 const userProfilesList = $('#userProfilesList');
+const permBox = $('#permBox');
+const permProfileSelect = $('#permProfileSelect');
+const permMsg = $('#permMsg');
+const permList = $('#permList');
 
 function showMsg(text, ok = true) {
   msg.textContent = text || '';
@@ -105,6 +109,55 @@ async function refreshUserProfiles() {
   }
 }
 
+function showPermMsg(text, ok = true) {
+  permMsg.textContent = text || '';
+  permMsg.className = 'msg ' + (ok ? 'ok' : 'error');
+}
+
+// CU-04: carga el catalogo de perfiles en el selector y pinta sus permisos.
+async function loadPermData() {
+  showPermMsg('');
+  const profRes = await toProcess('UserProfile', 'listProfiles', []);
+  if (profRes.ok) fillProfileOptions(permProfileSelect, profRes.data.data);
+  await refreshPermList();
+}
+
+// Pinta el catalogo completo de metodos con un boton que refleja si el perfil
+// elegido los tiene concedidos (granted). Tocar el boton concede o quita el permiso.
+async function refreshPermList() {
+  const profile_id = Number(permProfileSelect.value);
+  permList.innerHTML = '';
+  if (!profile_id) return;
+  const res = await toProcess('Permission', 'listPermissionMethods', [profile_id]);
+  if (!res.ok) { showPermMsg(res.data.msg || 'Error.', false); return; }
+  for (const m of res.data.data) {
+    const item = document.createElement('div');
+    item.className = 'item';
+    const label = document.createElement('span');
+    label.textContent = `${m.sub_system_de} · ${m.object_de} · ${m.method_de}`;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = m.granted ? 'perm-on' : 'perm-off';
+    btn.textContent = m.granted ? 'Concedido' : 'Sin acceso';
+    btn.addEventListener('click', async () => {
+      const methodName = m.granted ? 'revokeMethod' : 'grantMethod';
+      const r = await toProcess('Permission', methodName, [profile_id, m.method_id]);
+      if (r.ok) {
+        showPermMsg(m.granted ? 'Permiso quitado.' : 'Permiso concedido.', true);
+        refreshPermList();
+      } else {
+        showPermMsg(r.data.msg || 'Error.', false);
+      }
+    });
+    item.appendChild(label);
+    item.appendChild(btn);
+    permList.appendChild(item);
+  }
+}
+
+// Al elegir otro perfil, recargar sus permisos.
+permProfileSelect.addEventListener('change', refreshPermList);
+
 // Habilita o bloquea los campos del formulario de "Crear cuenta".
 // Todos ven el bloque, pero solo el admin puede escribir y enviarlo.
 function setRegisterEnabled(enabled) {
@@ -168,12 +221,23 @@ function renderSession(session) {
   } else {
     manageBox.classList.add('hidden');
   }
+
+  // CU-04 Gestionar permisos: solo si el perfil activo tiene el permiso.
+  permMsg.textContent = '';
+  permList.innerHTML = '';
+  if (session.canManagePermissions) {
+    permBox.classList.remove('hidden');
+    loadPermData();
+  } else {
+    permBox.classList.add('hidden');
+  }
 }
 
 function renderLoggedOut() {
   panel.classList.add('hidden');
   profileSelect.classList.add('hidden');
   registerBox.classList.add('hidden');
+  permBox.classList.add('hidden');
   title.classList.remove('hidden');
   formLogin.classList.remove('hidden');
   msg.classList.remove('hidden');
