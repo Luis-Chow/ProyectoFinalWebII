@@ -218,11 +218,7 @@ button[type="submit"]:hover,
   display: none;
 }
 
-/* ---- CU-04 Gestionar permisos: bloque ancho bajo las columnas ---- */
-#permBox {
-  margin-top: 18px;
-}
-
+/* ---- CU-04 Gestionar permisos ---- */
 #permBox .item {
   align-items: center;
 }
@@ -253,6 +249,99 @@ button[type="submit"]:hover,
 
 .perm-off:hover {
   background: #4e4f50;
+}
+
+/* ---- Ventana con pestañas verticales ---- */
+.workspace {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 0 0 190px;
+  min-width: 0;
+}
+
+.tab {
+  text-align: left;
+  padding: 11px 14px;
+  border: 1px solid #3e4042;
+  border-radius: 8px;
+  background: #1e1f20;
+  color: #b0b3b8;
+  font-size: .9rem;
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
+
+.tab:hover {
+  background: #2a2b2c;
+  color: #e4e6eb;
+}
+
+.tab.active {
+  background: #2d88ff;
+  border-color: #2d88ff;
+  color: #fff;
+}
+
+.tab-content {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 18px;
+  background: #1e1f20;
+  border: 1px solid #3e4042;
+  border-radius: 10px;
+}
+
+.tab-content h2 {
+  font-size: 1rem;
+  margin-bottom: 14px;
+  color: #e4e6eb;
+}
+
+/* ---- Selector de perfil (abajo de la ventana) ---- */
+.profile-switcher {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #3e4042;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.profile-switcher label {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  font-size: .85rem;
+}
+
+.profile-switcher select {
+  min-width: 200px;
+}
+
+/* En pantallas estrechas las pestañas pasan arriba en fila (responsivo). */
+@media (max-width: 640px) {
+  .workspace {
+    flex-direction: column;
+  }
+  .tabs {
+    flex: 1 1 auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+  .tab {
+    flex: 1 1 auto;
+    text-align: center;
+  }
+  .tab-content {
+    width: 100%;
+  }
 }
 
 /* ---- Pantalla "Perfiles" (selección de perfil activo tras el login) ---- */

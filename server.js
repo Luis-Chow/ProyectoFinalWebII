@@ -26,6 +26,14 @@ const REGISTER_J = { subsystem: 'security', objectName: 'User', methodName: 'ins
 const MANAGE_PROFILES_J = { subsystem: 'security', objectName: 'UserProfile', methodName: 'addUserProfile' };
 // Permiso para gestionar permisos de metodos por perfil (CU-04).
 const MANAGE_PERMS_J = { subsystem: 'security', objectName: 'Permission', methodName: 'grantMethod' };
+// Permiso para listar usuarios (decide si se muestra la pestaña "Listar usuarios").
+const LIST_USERS_J = { subsystem: 'security', objectName: 'User', methodName: 'listUsers' };
+
+// Subsistemas a los que el perfil activo tiene acceso (al menos un metodo permitido).
+// Es la "subsystem list" que la pizarra entrega tras el login.
+async function getSubsystems(profile_id) {
+    return await global.dbc.exeQuery(global.dbc.getSentence('security', 'listAccessibleSubsystems'), [profile_id]);
+}
 
 // Auditoria centralizada de /toProcess: que metodo deja que accion en la tabla audit.
 // (accion sigue el diseño de la pizarra 4: insert | delete | update.)
@@ -65,7 +73,8 @@ async function withPermissions(data) {
         ...data,
         canRegister: global.sec.getPermissionMethod(REGISTER_J, data.profile_id),
         canManageProfiles: global.sec.getPermissionMethod(MANAGE_PROFILES_J, data.profile_id),
-        canManagePermissions: global.sec.getPermissionMethod(MANAGE_PERMS_J, data.profile_id)
+        canManagePermissions: global.sec.getPermissionMethod(MANAGE_PERMS_J, data.profile_id),
+        canListUsers: global.sec.getPermissionMethod(LIST_USERS_J, data.profile_id)
     };
 }
 
@@ -89,22 +98,25 @@ app.post('/login', async (req, res) => {
             return res.status(403).json({ msg: 'El usuario no tiene perfiles asignados. Contacte al administrador.' });
         }
 
-        // Un solo perfil -> se activa solo y entra directo (no tiene sentido elegir).
-        if (profiles.length === 1) {
-            ses.setActiveProfile(profiles[0]);
-            await audit(ses, 'login', `Inició sesión como ${profiles[0].profile_de}`);
-            return res.json({ msg: 'Login OK.', ready: true, objectSession: await withPermissions(ses.getDataSession()) });
-        }
-
-        // Varios perfiles -> el cliente muestra la pantalla "Perfiles" para elegir el activo.
-        return res.json({ msg: 'Selecciona con qué perfil deseas trabajar.', ready: false, profiles });
+        // Perfil activo por defecto = el primero. El usuario puede cambiarlo luego con el
+        // selector de perfil (abajo en la ventana). Tras el login se elige el SUBSISTEMA.
+        ses.setActiveProfile(profiles[0]);
+        await audit(ses, 'login', `Inició sesión como ${profiles[0].profile_de}`);
+        const subsystems = await getSubsystems(profiles[0].profile_id);
+        return res.json({
+            msg: 'Login OK.',
+            objectSession: await withPermissions(ses.getDataSession()),
+            profiles,
+            subsystems
+        });
     } catch (err) {
         console.error(err);
         res.status(500).json({ msg: 'Error al iniciar sesión.' });
     }
 });
 
-// Segundo paso del login: el usuario eligio un perfil en la pantalla "Perfiles".
+// Cambiar de perfil activo (selector de perfil en la ventana). Recalcula permisos y
+// subsistemas accesibles para el nuevo perfil.
 app.post('/selectProfile', async (req, res) => {
     try {
         const ses = new Session(req, global.dbc);
@@ -122,8 +134,13 @@ app.post('/selectProfile', async (req, res) => {
         }
 
         ses.setActiveProfile(chosen);
-        await audit(ses, 'login', `Inició sesión como ${chosen.profile_de}`);
-        return res.json({ msg: 'Perfil activo.', objectSession: await withPermissions(ses.getDataSession()) });
+        await audit(ses, 'login', `Cambió al perfil ${chosen.profile_de}`);
+        const subsystems = await getSubsystems(chosen.profile_id);
+        return res.json({
+            msg: 'Perfil activo.',
+            objectSession: await withPermissions(ses.getDataSession()),
+            subsystems
+        });
     } catch (err) {
         console.error(err);
         res.status(500).json({ msg: 'Error al seleccionar el perfil.' });
@@ -149,13 +166,16 @@ app.get('/me', async (req, res) => {
     if (!ses.sessionExist()) {
         return res.status(401).json({ msg: 'No hay sesión activa.' });
     }
-    const data = ses.getDataSession();
-    // Sesion iniciada pero sin perfil elegido: reanudar en la pantalla "Perfiles".
+    let data = ses.getDataSession();
+    // Por si la sesion quedo sin perfil activo (caso raro): activar el primero.
     if (data.profile_id == null) {
         const profiles = await ses.getProfiles(data.user_id);
-        return res.json({ ready: false, profiles });
+        if (profiles.length) ses.setActiveProfile(profiles[0]);
+        data = ses.getDataSession();
     }
-    res.json({ ready: true, objectSession: await withPermissions(data) });
+    const profiles = await ses.getProfiles(data.user_id);
+    const subsystems = await getSubsystems(data.profile_id);
+    res.json({ objectSession: await withPermissions(data), profiles, subsystems });
 });
 
 // Dispatcher: toda solicitud de ejecucion de metodos entra por aqui.

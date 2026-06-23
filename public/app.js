@@ -2,39 +2,61 @@ const $ = (sel) => document.querySelector(sel);
 
 const formLogin = $('#formLogin');
 const formRegister = $('#formRegister');
-const registerBox = $('#registerBox');
-const registerMsg = $('#registerMsg');
-const profileSelect = $('#profileSelect');
-const profileButtons = $('#profileButtons');
+const subsystemSelect = $('#subsystemSelect');
+const subsystemDropdown = $('#subsystemDropdown');
+const subsystemMsg = $('#subsystemMsg');
 const panel = $('#panel');
 const msg = $('#msg');
 const title = document.querySelector('h1');
 const whoami = $('#whoami');
+const tabsNav = $('#tabs');
+const noActions = $('#noActions');
+const profileSwitcher = $('#profileSwitcher');
+const profileSwitchSelect = $('#profileSwitchSelect');
+const registerMsg = $('#registerMsg');
 const resultMsg = $('#resultMsg');
 const resultList = $('#resultList');
-const manageBox = $('#manageBox');
 const userSelect = $('#userSelect');
 const profileAssignSelect = $('#profileAssignSelect');
 const manageMsg = $('#manageMsg');
 const userProfilesList = $('#userProfilesList');
-const permBox = $('#permBox');
 const permProfileSelect = $('#permProfileSelect');
 const permMsg = $('#permMsg');
 const permList = $('#permList');
+
+// Estado de la sesion en el cliente.
+let currentSession = null;
+let currentProfiles = [];
+let currentSubsystems = [];
+let currentSubsystem = null;
+
+// Nombre amigable del subsistema (sub_system_de es el identificador tecnico).
+const SUBSYSTEM_LABELS = { security: 'Seguridad' };
+const subsystemLabel = (de) => SUBSYSTEM_LABELS[de] || de;
 
 function showMsg(text, ok = true) {
   msg.textContent = text || '';
   msg.className = 'msg ' + (ok ? 'ok' : 'error');
 }
-
 function showRegisterMsg(text, ok = true) {
   registerMsg.textContent = text || '';
   registerMsg.className = 'msg ' + (ok ? 'ok' : 'error');
 }
-
 function showResultMsg(text, ok = true) {
   resultMsg.textContent = text || '';
   resultMsg.className = 'msg ' + (ok ? 'ok' : 'error');
+}
+function showManageMsg(text, ok = true) {
+  manageMsg.textContent = text || '';
+  manageMsg.className = 'msg ' + (ok ? 'ok' : 'error');
+}
+function showPermMsg(text, ok = true) {
+  permMsg.textContent = text || '';
+  permMsg.className = 'msg ' + (ok ? 'ok' : 'error');
+}
+function showSubsystemMsg(text, ok = true) {
+  subsystemMsg.textContent = text || '';
+  subsystemMsg.className = 'msg ' + (ok ? 'ok' : 'error');
 }
 
 async function api(path, options = {}) {
@@ -55,11 +77,6 @@ function toProcess(objectName, methodName, params = []) {
   });
 }
 
-function showManageMsg(text, ok = true) {
-  manageMsg.textContent = text || '';
-  manageMsg.className = 'msg ' + (ok ? 'ok' : 'error');
-}
-
 // Rellena un <select> con perfiles [{profile_id, profile_de}].
 function fillProfileOptions(select, profiles) {
   select.innerHTML = '';
@@ -71,7 +88,7 @@ function fillProfileOptions(select, profiles) {
   }
 }
 
-// Carga los datos del bloque de admin: lista de usuarios y catalogo de perfiles.
+// ---- Pestaña "Perfiles de usuarios" ----
 async function loadManageData() {
   const usersRes = await toProcess('User', 'listUsers', []);
   if (usersRes.ok) {
@@ -88,7 +105,6 @@ async function loadManageData() {
   await refreshUserProfiles();
 }
 
-// Muestra los perfiles que tiene asignados el usuario seleccionado.
 async function refreshUserProfiles() {
   const user_id = Number(userSelect.value);
   userProfilesList.innerHTML = '';
@@ -109,12 +125,7 @@ async function refreshUserProfiles() {
   }
 }
 
-function showPermMsg(text, ok = true) {
-  permMsg.textContent = text || '';
-  permMsg.className = 'msg ' + (ok ? 'ok' : 'error');
-}
-
-// CU-04: carga el catalogo de perfiles en el selector y pinta sus permisos.
+// ---- Pestaña "Gestionar permisos" (CU-04) ----
 async function loadPermData() {
   showPermMsg('');
   const profRes = await toProcess('UserProfile', 'listProfiles', []);
@@ -122,8 +133,6 @@ async function loadPermData() {
   await refreshPermList();
 }
 
-// Pinta el catalogo completo de metodos con un boton que refleja si el perfil
-// elegido los tiene concedidos (granted). Tocar el boton concede o quita el permiso.
 async function refreshPermList() {
   const profile_id = Number(permProfileSelect.value);
   permList.innerHTML = '';
@@ -155,138 +164,7 @@ async function refreshPermList() {
   }
 }
 
-// Al elegir otro perfil, recargar sus permisos.
-permProfileSelect.addEventListener('change', refreshPermList);
-
-// Habilita o bloquea los campos del formulario de "Crear cuenta".
-// Todos ven el bloque, pero solo el admin puede escribir y enviarlo.
-function setRegisterEnabled(enabled) {
-  for (const field of formRegister.elements) {
-    field.disabled = !enabled;
-  }
-}
-
-// Muestra la pantalla "Perfiles" para que el usuario elija el perfil activo.
-function renderProfileSelect(profiles) {
-  title.classList.add('hidden');
-  formLogin.classList.add('hidden');
-  panel.classList.add('hidden');
-  msg.classList.add('hidden');
-  profileSelect.classList.remove('hidden');
-  profileButtons.innerHTML = '';
-  for (const p of profiles) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'profile-card';
-    btn.textContent = p.profile_de;
-    btn.addEventListener('click', async () => {
-      const { ok, data } = await api('/selectProfile', {
-        method: 'POST',
-        body: JSON.stringify({ profile_id: p.profile_id })
-      });
-      if (ok) {
-        profileSelect.classList.add('hidden');
-        renderSession(data.objectSession);
-      } else {
-        msg.classList.remove('hidden');
-        showMsg(data.msg || 'No se pudo seleccionar el perfil.', false);
-      }
-    });
-    profileButtons.appendChild(btn);
-  }
-}
-
-function renderSession(session) {
-  title.classList.add('hidden');
-  formLogin.classList.add('hidden');
-  profileSelect.classList.add('hidden');
-  msg.classList.add('hidden');
-  panel.classList.remove('hidden');
-  whoami.textContent = `Conectado como ${session.user_na} (${session.profile_de})`;
-  // El bloque se muestra a todos, pero solo se habilita si la BD le concede el permiso.
-  const canRegister = !!session.canRegister;
-  registerBox.classList.remove('hidden');
-  formRegister.reset();
-  setRegisterEnabled(canRegister);
-  showRegisterMsg(canRegister ? '' : 'No tienes permiso para crear cuentas.', false);
-  showResultMsg('');
-  resultList.innerHTML = '';
-
-  // Bloque de admin para asignar/quitar perfiles: solo si la BD le concede el permiso.
-  manageMsg.textContent = '';
-  userProfilesList.innerHTML = '';
-  if (session.canManageProfiles) {
-    manageBox.classList.remove('hidden');
-    loadManageData();
-  } else {
-    manageBox.classList.add('hidden');
-  }
-
-  // CU-04 Gestionar permisos: solo si el perfil activo tiene el permiso.
-  permMsg.textContent = '';
-  permList.innerHTML = '';
-  if (session.canManagePermissions) {
-    permBox.classList.remove('hidden');
-    loadPermData();
-  } else {
-    permBox.classList.add('hidden');
-  }
-}
-
-function renderLoggedOut() {
-  panel.classList.add('hidden');
-  profileSelect.classList.add('hidden');
-  registerBox.classList.add('hidden');
-  permBox.classList.add('hidden');
-  title.classList.remove('hidden');
-  formLogin.classList.remove('hidden');
-  msg.classList.remove('hidden');
-  showMsg('');
-}
-
-formRegister.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  // Crear cuenta ahora entra por el dispatcher como cualquier otro metodo (insertUser).
-  const body = Object.fromEntries(new FormData(formRegister));
-  const { ok, data } = await toProcess('User', 'insertUser', body);
-  if (ok) {
-    formRegister.reset();
-    showRegisterMsg('Usuario creado.', true);
-  } else if (data.errors && data.errors.length) {
-    showRegisterMsg('• ' + data.errors.join('\n• '), false);
-  } else {
-    showRegisterMsg(data.msg, false);
-  }
-});
-
-formLogin.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const body = Object.fromEntries(new FormData(formLogin));
-  const { ok, data } = await api('/login', { method: 'POST', body: JSON.stringify(body) });
-  showMsg(data.msg, ok);
-  if (ok) {
-    formLogin.reset();
-    // ready=true -> entro directo (un solo perfil). ready=false -> pantalla "Perfiles".
-    if (data.ready) {
-      renderSession(data.objectSession);
-    } else {
-      renderProfileSelect(data.profiles);
-    }
-  }
-});
-
-// Cancelar la seleccion de perfil = cerrar la sesion a medias y volver al login.
-$('#btnCancelProfile').addEventListener('click', async () => {
-  await api('/logout', { method: 'POST' });
-  renderLoggedOut();
-});
-
-$('#btnLogout').addEventListener('click', async () => {
-  const { ok, data } = await api('/logout', { method: 'POST' });
-  renderLoggedOut();
-  showMsg(data.msg, ok);
-});
-
+// ---- Pestaña "Listar usuarios" ----
 function renderUsers(rows) {
   resultList.innerHTML = '';
   for (const u of rows) {
@@ -303,25 +181,174 @@ function renderUsers(rows) {
   }
 }
 
-// j = { subsystem, objectName, methodName, params } -> POST /toProcess
-$('#btnListUsers').addEventListener('click', async () => {
-  const j = {
-    subsystem: 'security',
-    objectName: 'User',
-    methodName: 'listUsers',
-    params: []
-  };
-  const { ok, data } = await api('/toProcess', { method: 'POST', body: JSON.stringify(j) });
-  if (ok) {
-    renderUsers(data.data);
-    showResultMsg(`Permitido: ${data.data.length} usuario(s).`, true);
+// Definicion de pestañas: etiqueta, permiso que las habilita, y carga de datos al abrir.
+const TABS = [
+  { id: 'registerBox', label: 'Crear cuenta',         can: (s) => s.canRegister,          load: () => formRegister.reset() },
+  { id: 'manageBox',   label: 'Perfiles de usuarios', can: (s) => s.canManageProfiles,    load: loadManageData },
+  { id: 'listBox',     label: 'Listar usuarios',      can: (s) => s.canListUsers,         load: null },
+  { id: 'permBox',     label: 'Gestionar permisos',   can: (s) => s.canManagePermissions, load: loadPermData }
+];
+
+// Muestra una pestaña: oculta el resto de paneles y marca el boton activo.
+function activateTab(tab) {
+  for (const t of TABS) $('#' + t.id).classList.add('hidden');
+  noActions.classList.add('hidden');
+  $('#' + tab.id).classList.remove('hidden');
+  for (const btn of tabsNav.children) {
+    btn.classList.toggle('active', btn.dataset.tab === tab.id);
+  }
+  if (tab.load) tab.load();
+}
+
+// Construye las pestañas verticales segun los permisos del perfil activo.
+function buildTabs(session) {
+  tabsNav.innerHTML = '';
+  const available = TABS.filter((t) => t.can(session));
+  for (const t of available) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'tab';
+    btn.dataset.tab = t.id;
+    btn.textContent = t.label;
+    btn.addEventListener('click', () => activateTab(t));
+    tabsNav.appendChild(btn);
+  }
+  // Oculta todos los paneles y abre la primera pestaña (o el aviso si no hay ninguna).
+  for (const t of TABS) $('#' + t.id).classList.add('hidden');
+  if (available.length) {
+    activateTab(available[0]);
   } else {
-    resultList.innerHTML = '';
-    showResultMsg(data.msg || 'Error.', false);
+    noActions.classList.remove('hidden');
+  }
+}
+
+// Rellena el selector de perfil (abajo) y lo muestra solo si hay mas de un perfil.
+function renderProfileSwitcher() {
+  if (currentProfiles.length > 1) {
+    fillProfileOptions(profileSwitchSelect, currentProfiles);
+    profileSwitchSelect.value = String(currentSession.profile_id);
+    profileSwitcher.classList.remove('hidden');
+  } else {
+    profileSwitcher.classList.add('hidden');
+  }
+}
+
+// ---- Navegacion entre las tres pantallas ----
+function hideAllScreens() {
+  formLogin.classList.add('hidden');
+  subsystemSelect.classList.add('hidden');
+  panel.classList.add('hidden');
+}
+
+function renderLoggedOut() {
+  hideAllScreens();
+  title.classList.remove('hidden');
+  formLogin.classList.remove('hidden');
+  msg.classList.remove('hidden');
+  showMsg('');
+  currentSession = null;
+  currentProfiles = [];
+  currentSubsystems = [];
+  currentSubsystem = null;
+}
+
+// Pantalla de seleccion de subsistema (paso posterior al login).
+function renderSubsystemSelect() {
+  hideAllScreens();
+  title.classList.add('hidden');
+  msg.classList.add('hidden');
+  subsystemSelect.classList.remove('hidden');
+  showSubsystemMsg('');
+  subsystemDropdown.innerHTML = '';
+  for (const s of currentSubsystems) {
+    const opt = document.createElement('option');
+    opt.value = s.sub_system_de;
+    opt.textContent = subsystemLabel(s.sub_system_de);
+    subsystemDropdown.appendChild(opt);
+  }
+  const hasAny = currentSubsystems.length > 0;
+  $('#btnEnterSubsystem').classList.toggle('hidden', !hasAny);
+  subsystemDropdown.classList.toggle('hidden', !hasAny);
+  if (!hasAny) showSubsystemMsg('Tu perfil actual no tiene subsistemas disponibles.', false);
+}
+
+// Ventana principal del subsistema elegido: pestañas verticales + selector de perfil.
+function renderWorkspace() {
+  hideAllScreens();
+  title.classList.add('hidden');
+  msg.classList.add('hidden');
+  panel.classList.remove('hidden');
+  whoami.textContent =
+    `Conectado como ${currentSession.user_na} (${currentSession.profile_de}) · ${subsystemLabel(currentSubsystem)}`;
+  buildTabs(currentSession);
+  renderProfileSwitcher();
+}
+
+// ---- Eventos ----
+formLogin.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const body = Object.fromEntries(new FormData(formLogin));
+  const { ok, data } = await api('/login', { method: 'POST', body: JSON.stringify(body) });
+  if (ok) {
+    formLogin.reset();
+    currentSession = data.objectSession;
+    currentProfiles = data.profiles || [];
+    currentSubsystems = data.subsystems || [];
+    renderSubsystemSelect();
+  } else {
+    showMsg(data.msg, false);
   }
 });
 
-// Al elegir otro usuario, mostrar los perfiles que tiene.
+$('#btnEnterSubsystem').addEventListener('click', () => {
+  currentSubsystem = subsystemDropdown.value;
+  if (!currentSubsystem) return;
+  renderWorkspace();
+});
+
+$('#btnCancelSubsystem').addEventListener('click', async () => {
+  await api('/logout', { method: 'POST' });
+  renderLoggedOut();
+});
+
+$('#btnLogout').addEventListener('click', async () => {
+  const { ok, data } = await api('/logout', { method: 'POST' });
+  renderLoggedOut();
+  showMsg(data.msg, ok);
+});
+
+// Cambiar de perfil activo (selector abajo): recalcula permisos y re-pinta las pestañas.
+profileSwitchSelect.addEventListener('change', async () => {
+  const profile_id = Number(profileSwitchSelect.value);
+  const { ok, data } = await api('/selectProfile', {
+    method: 'POST',
+    body: JSON.stringify({ profile_id })
+  });
+  if (ok) {
+    currentSession = data.objectSession;
+    currentSubsystems = data.subsystems || [];
+    whoami.textContent =
+      `Conectado como ${currentSession.user_na} (${currentSession.profile_de}) · ${subsystemLabel(currentSubsystem)}`;
+    buildTabs(currentSession);
+  } else {
+    showMsg(data.msg || 'No se pudo cambiar de perfil.', false);
+  }
+});
+
+formRegister.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const body = Object.fromEntries(new FormData(formRegister));
+  const { ok, data } = await toProcess('User', 'insertUser', body);
+  if (ok) {
+    formRegister.reset();
+    showRegisterMsg('Usuario creado.', true);
+  } else if (data.errors && data.errors.length) {
+    showRegisterMsg('• ' + data.errors.join('\n• '), false);
+  } else {
+    showRegisterMsg(data.msg, false);
+  }
+});
+
 userSelect.addEventListener('change', refreshUserProfiles);
 
 $('#btnAssign').addEventListener('click', async () => {
@@ -338,14 +365,26 @@ $('#btnRemove').addEventListener('click', async () => {
   if (ok) refreshUserProfiles();
 });
 
-// Al recargar la pagina, restaura la sesion si la cookie sigue viva.
-// Si quedo a medias (sin perfil elegido), reanuda en la pantalla "Perfiles".
+permProfileSelect.addEventListener('change', refreshPermList);
+
+$('#btnListUsers').addEventListener('click', async () => {
+  const { ok, data } = await toProcess('User', 'listUsers', []);
+  if (ok) {
+    renderUsers(data.data);
+    showResultMsg(`Permitido: ${data.data.length} usuario(s).`, true);
+  } else {
+    resultList.innerHTML = '';
+    showResultMsg(data.msg || 'Error.', false);
+  }
+});
+
+// Al recargar la pagina, restaura la sesion si la cookie sigue viva y reanuda en la
+// seleccion de subsistema.
 (async () => {
   const { ok, data } = await api('/me');
-  if (!ok) return;
-  if (data.ready && data.objectSession) {
-    renderSession(data.objectSession);
-  } else if (data.ready === false && data.profiles) {
-    renderProfileSelect(data.profiles);
-  }
+  if (!ok || !data.objectSession) return;
+  currentSession = data.objectSession;
+  currentProfiles = data.profiles || [];
+  currentSubsystems = data.subsystems || [];
+  renderSubsystemSelect();
 })();

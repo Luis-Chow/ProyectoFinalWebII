@@ -5,6 +5,7 @@
     "listUsers": "SELECT u.user_id, u.user_na, COALESCE(string_agg(p.profile_de, ', ' ORDER BY p.profile_id), '—') AS profiles FROM \"user\" u LEFT JOIN user_profile up ON up.user_id = u.user_id LEFT JOIN profile p ON p.profile_id = up.profile_id GROUP BY u.user_id, u.user_na ORDER BY u.user_id ASC",
     "listProfiles": "SELECT profile_id, profile_de FROM profile ORDER BY profile_id ASC",
     "listUserProfiles": "SELECT p.profile_id, p.profile_de FROM user_profile up INNER JOIN profile p ON p.profile_id = up.profile_id WHERE up.user_id = $1 ORDER BY p.profile_id ASC",
+    "listAccessibleSubsystems": "SELECT DISTINCT s.sub_system_id, s.sub_system_de FROM sub_system s INNER JOIN object o ON o.sub_system_id = s.sub_system_id INNER JOIN method m ON m.object_id = o.object_id INNER JOIN permission_method pm ON pm.method_id = m.method_id WHERE pm.profile_id = $1 ORDER BY s.sub_system_de",
     "addUserProfile": "INSERT INTO user_profile (user_id, profile_id) VALUES ($1, $2) ON CONFLICT (user_id, profile_id) DO NOTHING",
     "removeUserProfile": "DELETE FROM user_profile WHERE user_id = $1 AND profile_id = $2",
     "listPermissionMethods": "SELECT m.method_id, m.method_de, o.object_de, s.sub_system_de, (pm.permission_method_id IS NOT NULL) AS granted FROM method m INNER JOIN object o ON o.object_id = m.object_id INNER JOIN sub_system s ON s.sub_system_id = o.sub_system_id LEFT JOIN permission_method pm ON pm.method_id = m.method_id AND pm.profile_id = $1 ORDER BY s.sub_system_de, o.object_de, m.method_id",

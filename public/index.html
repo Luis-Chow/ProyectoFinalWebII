@@ -20,78 +20,99 @@
       <button type="submit">Entrar</button>
     </form>
 
-    <!-- Pantalla "Perfiles": aparece tras el login cuando el usuario tiene mas de un perfil.
-         Elegir un perfil fija el perfil ACTIVO con el que se resolveran los permisos. -->
-    <section id="profileSelect" class="panel hidden">
-      <h2 class="select-title">Selecciona tu perfil</h2>
-      <p class="hint">Tu usuario tiene varios perfiles. Elige con cuál deseas trabajar en esta sesión.</p>
-      <div id="profileButtons" class="profile-grid"></div>
-      <button id="btnCancelProfile" type="button" class="secondary">Cancelar</button>
+    <!-- Paso 2 (pizarra): tras el login se elige el SUBSISTEMA con el que trabajar.
+         La lista la entrega el servidor segun los permisos del perfil activo. -->
+    <section id="subsystemSelect" class="panel hidden">
+      <h2 class="select-title">Selecciona un subsistema</h2>
+      <p class="hint">Elige el subsistema con el que vas a trabajar.</p>
+      <label>Subsistema
+        <select id="subsystemDropdown"></select>
+      </label>
+      <p id="subsystemMsg" class="msg"></p>
+      <div class="panel-actions">
+        <button id="btnEnterSubsystem" type="button">Entrar</button>
+        <button id="btnCancelSubsystem" type="button" class="secondary">Cerrar sesión</button>
+      </div>
     </section>
 
+    <!-- Paso 3: ventana principal. Pestañas verticales a la izquierda + contenido a la derecha. -->
     <section id="panel" class="panel hidden">
       <div class="panel-top">
         <p id="whoami" class="whoami"></p>
         <button id="btnLogout" type="button">Cerrar sesión</button>
       </div>
 
-      <!-- Los tres bloques se muestran en columnas horizontales. -->
-      <div class="columns">
-        <!-- Crear cuenta. Solo se habilita a administradores (ver app.js). -->
-        <section id="registerBox" class="box hidden">
-          <h2>Crear cuenta</h2>
-          <form id="formRegister" class="form">
+      <div class="workspace">
+        <!-- Pestañas verticales (se generan segun los permisos del perfil activo). -->
+        <nav id="tabs" class="tabs"></nav>
+
+        <!-- Contenido de la pestaña activa. -->
+        <div class="tab-content">
+          <!-- Crear cuenta -->
+          <section id="registerBox" class="tabpanel hidden">
+            <h2>Crear cuenta</h2>
+            <form id="formRegister" class="form">
+              <label>Usuario
+                <input type="text" name="user_na" autocomplete="off" required>
+              </label>
+              <label>Contraseña
+                <input type="password" name="user_pw" autocomplete="new-password" required>
+              </label>
+              <small class="hint">Mínimo 8 caracteres, sin espacios, con mayúscula, minúscula y número.</small>
+              <button type="submit">Crear cuenta</button>
+            </form>
+            <p id="registerMsg" class="msg"></p>
+          </section>
+
+          <!-- Perfiles de usuarios -->
+          <section id="manageBox" class="tabpanel hidden">
+            <h2>Perfiles de usuarios</h2>
             <label>Usuario
-              <input type="text" name="user_na" autocomplete="off" required>
+              <select id="userSelect"></select>
             </label>
-            <label>Contraseña
-              <input type="password" name="user_pw" autocomplete="new-password" required>
+            <label>Perfil
+              <select id="profileAssignSelect"></select>
             </label>
-            <small class="hint">Mínimo 8 caracteres, sin espacios, con mayúscula, minúscula y número.</small>
-            <button type="submit">Crear cuenta</button>
-          </form>
-          <p id="registerMsg" class="msg"></p>
-        </section>
+            <div class="panel-actions">
+              <button id="btnAssign" type="button">Asignar</button>
+              <button id="btnRemove" type="button" class="secondary">Quitar</button>
+            </div>
+            <p id="manageMsg" class="msg"></p>
+            <div id="userProfilesList" class="list"></div>
+          </section>
 
-        <!-- Perfiles de usuarios. Solo se muestra a quien tenga permiso (ver app.js). -->
-        <section id="manageBox" class="box hidden">
-          <h2>Perfiles de usuarios</h2>
-          <label>Usuario
-            <select id="userSelect"></select>
-          </label>
-          <label>Perfil
-            <select id="profileAssignSelect"></select>
-          </label>
-          <div class="panel-actions">
-            <button id="btnAssign" type="button">Asignar</button>
-            <button id="btnRemove" type="button" class="secondary">Quitar</button>
-          </div>
-          <p id="manageMsg" class="msg"></p>
-          <div id="userProfilesList" class="list"></div>
-        </section>
+          <!-- Listar usuarios -->
+          <section id="listBox" class="tabpanel hidden">
+            <h2>Listar usuarios</h2>
+            <div class="panel-actions">
+              <button id="btnListUsers" type="button">Ejecutar listUsers</button>
+            </div>
+            <p id="resultMsg" class="msg"></p>
+            <div id="resultList" class="list"></div>
+          </section>
 
-        <!-- Listar usuarios. Lo ve todo el mundo; el permiso se valida en el servidor. -->
-        <section id="listBox" class="box">
-          <h2>Listar usuarios</h2>
-          <div class="panel-actions">
-            <button id="btnListUsers" type="button">Ejecutar listUsers</button>
-          </div>
-          <p id="resultMsg" class="msg"></p>
-          <div id="resultList" class="list"></div>
-        </section>
+          <!-- Gestionar permisos (CU-04) -->
+          <section id="permBox" class="tabpanel hidden">
+            <h2>Gestionar permisos (métodos por perfil)</h2>
+            <label>Perfil
+              <select id="permProfileSelect"></select>
+            </label>
+            <small class="hint">Marca qué métodos puede ejecutar el perfil. El cambio aplica al instante.</small>
+            <p id="permMsg" class="msg"></p>
+            <div id="permList" class="list"></div>
+          </section>
+
+          <!-- Mensaje cuando el perfil activo no tiene acciones en este subsistema. -->
+          <p id="noActions" class="hint hidden">Este perfil no tiene acciones disponibles en este subsistema.</p>
+        </div>
       </div>
 
-      <!-- CU-04 Gestionar permisos: conceder/quitar metodos a cada perfil. Solo visible a
-           quien tenga el permiso (ver app.js); el servidor lo valida igual. -->
-      <section id="permBox" class="box hidden">
-        <h2>Gestionar permisos (métodos por perfil)</h2>
-        <label>Perfil
-          <select id="permProfileSelect"></select>
+      <!-- Selector de perfil: solo aparece si el usuario tiene mas de un perfil. -->
+      <div id="profileSwitcher" class="profile-switcher hidden">
+        <label>Perfil activo
+          <select id="profileSwitchSelect"></select>
         </label>
-        <small class="hint">Marca qué métodos puede ejecutar el perfil. El cambio aplica al instante.</small>
-        <p id="permMsg" class="msg"></p>
-        <div id="permList" class="list"></div>
-      </section>
+      </div>
     </section>
 
     <p id="msg" class="msg"></p>
