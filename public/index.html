@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="styles.css">
+  <title>Sistema de Gestión - Proyectos</title>
+</head>
+<body>
+
+  <main id="authContainer" class="auth-container">
+    <div class="auth-card">
+      <h1>Bienvenido</h1>
+      <form id="formLogin" class="form">
+        <label>Usuario
+          <input type="text" name="user_na" autocomplete="username" required>
+        </label>
+        <label>Contraseña
+          <input type="password" name="user_pw" autocomplete="current-password" required>
+        </label>
+        <button type="submit">Entrar</button>
+      </form>
+      <p id="msg" class="msg"></p>
+    </div>
+  </main>
+
+  <div id="panel" class="app-container hidden">
+    
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <p id="whoami" class="whoami-text"></p>
+      </div>
+      
+      <nav class="sidebar-menu">
+        <a href="#" class="menu-item">Dashboard</a>
+        <a href="#" class="menu-item active">Proyectos</a>
+        <a href="#" class="menu-item">Seguridad</a>
+        <a href="#" class="menu-item">Configuración</a>
+      </nav>
+
+      <div id="switchBox" class="profile-switcher">
+        <label>Perfil activo</label>
+        <select id="profileSelect"></select>
+        <button id="btnSwitch" type="button">Cambiar</button>
+        <p id="switchMsg" class="msg"></p>
+      </div>
+
+      <button id="btnLogout" type="button" class="btn-logout">Cerrar sesión</button>
+    </aside>
+
+    <main class="main-content">
+      
+      <section id="projectsSection" class="content-section">
+        <div class="section-header">
+          <h2>Módulo de Proyectos</h2>
+          <p class="section-subtitle">Gestiona y supervisa los proyectos asignados.</p>
+        </div>
+
+        <div class="toolbar">
+          <div class="search-box">
+            <input type="text" id="searchProject" placeholder="Buscar proyecto por nombre o líder...">
+          </div>
+          <button id="btnCreateProject" class="btn-primary">Crear proyecto</button>
+        </div>
+
+        <div class="table-container">
+          <table class="projects-table">
+            <thead>
+              <tr>
+                <th>Nombre del Proyecto</th>
+                <th>Líder</th>
+                <th class="text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="projectsList">
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="registerBox" class="hidden"></section>
+      <section id="manageBox" class="hidden"></section>
+      <p id="resultMsg" class="msg hidden"></p>
+      <div id="resultList" class="hidden"></div>
+    </main>
+
+  </div>
+
+  <div id="projectModal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Crear Nuevo Proyecto</h3>
+      </div>
+      <form id="formProject" class="form">
+        <label>Nombre del Proyecto
+          <input type="text" id="projectName" placeholder="Ej. Sistema Sol-Manager" required>
+        </label>
+        
+        <label>Descripción del Proyecto
+          <input type="text" id="projectDescription" placeholder="Breve descripción del proyecto...">
+        </label>
+
+        <label>Líder del Proyecto (ID del Usuario)
+          <input 
+            type="number" 
+            id="projectLeader" 
+            placeholder="ID numérico del Líder" 
+            min="1" 
+            oninput="if(this.value < 1) this.value = '';" 
+            required
+          >
+        </label>
+
+        <div class="members-section">
+          <div class="members-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <h4>Miembros del Equipo</h4>
+            <button type="button" id="btnAddMemberRow" class="btn-primary" style="padding: 6px 12px; font-size: 13px; cursor: pointer;">+ Añadir Miembro</button>
+          </div>
+          <div id="membersContainer">
+            </div>
+        </div>
+
+        <div class="modal-actions" style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+          <button type="button" id="btnCancelProject" class="btn-cancel" style="background: #e0e0e0; border: none; padding: 8px 16px; cursor: pointer; border-radius: 4px; color: #333;">Cancelar</button>
+          <button type="submit" class="btn-primary" style="padding: 8px 16px; cursor: pointer;">Guardar Proyecto</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <template id="tmplMemberRow">
+    <div class="member-row" style="display: flex; gap: 10px; margin-bottom: 8px;">
+      <input type="number" name="member_user_id" placeholder="ID del Usuario" min="1" oninput="if(this.value < 1) this.value = '';" required style="flex: 2;">
+      <select name="member_role" required style="flex: 1;">
+        <option value="Analista">Analista</option>
+        <option value="Arquitecto">Arquitecto</option>
+        <option value="Business Analyst">Business Analyst</option>
+        <option value="Desarrollador">Desarrollador</option>
+        <option value="QA">QA</option>
+      </select>
+      <button type="button" class="btn-remove-row" style="background:#ff4d4d; color:white; border:none; padding:5px 10px; cursor:pointer; border-radius:4px;">X</button>
+    </div>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>

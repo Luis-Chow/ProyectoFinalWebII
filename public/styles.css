@@ -1,0 +1,392 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: #f4f6f9;
+  min-height: 100vh;
+  color: #333;
+}
+
+/* ================= LOGIN ESTILO LIMPIO ================= */
+.auth-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: #f4f6f9;
+}
+
+.auth-card {
+  background: #ffffff;
+  width: 100%;
+  max-width: 400px;
+  padding: 35px;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+.auth-card h1 {
+  font-size: 1.6rem;
+  text-align: center;
+  margin-bottom: 25px;
+  color: #1e40af; /* Azul Corporativo Principal */
+}
+
+/* ================= CONTENEDOR APP DISTRIBUCIÓN ================= */
+.app-container {
+  display: flex;
+  min-height: 100vh;
+  background: #ffffff;
+}
+
+/* BARRA LATERAL (BLOQUE AZUL) */
+.sidebar {
+  width: 280px;
+  background: #1e40af; /* Azul */
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  flex-shrink: 0;
+}
+
+.whoami-text {
+  font-size: 0.85rem;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 10px;
+  border-radius: 6px;
+  margin-bottom: 30px;
+  color: #e0e7ff;
+}
+
+.sidebar-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.menu-item {
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.menu-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.menu-item.active {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* CONMUTADOR DE PERFIL BAJO LA SIDEBAR */
+.profile-switcher {
+  background: rgba(0, 0, 0, 0.15);
+  padding: 14px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+}
+
+.profile-switcher label {
+  color: #cbd5e1;
+  font-size: 0.8rem;
+  margin-bottom: 6px;
+  display: block;
+}
+
+.profile-switcher select {
+  width: 100%;
+  padding: 8px;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #333;
+  border: none;
+  font-size: 0.9rem;
+  margin-bottom: 8px;
+}
+
+.profile-switcher button {
+  width: 100%;
+  padding: 8px;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.profile-switcher button:hover {
+  background: #3b82f6;
+}
+
+.btn-logout {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: white;
+  padding: 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-logout:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ================= CONTENIDO (FONDO BLANCO) ================= */
+.main-content {
+  flex: 1;
+  padding: 40px;
+  background: #ffffff;
+  overflow-y: auto;
+}
+
+.section-header {
+  margin-bottom: 30px;
+}
+
+.section-header h2 {
+  font-size: 1.8rem;
+  color: #1e293b;
+}
+
+.section-subtitle {
+  color: #64748b;
+  font-size: 0.95rem;
+  margin-top: 4px;
+}
+
+/* BARRA DE HERRAMIENTAS (BUSCADOR + BOTÓN CREAR) */
+.toolbar {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+  align-items: center;
+}
+
+.search-box {
+  flex: 1;
+}
+
+.search-box input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  background: #f8fafc;
+}
+
+.search-box input:focus {
+  outline: none;
+  border-color: #2563eb;
+  background: #ffffff;
+}
+
+.btn-primary {
+  padding: 12px 24px;
+  background: #1e40af; /* Botón Azul */
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-primary:hover {
+  background: #1d4ed8;
+}
+
+/* TABLA DE PROYECTOS MINIMALISTA */
+.table-container {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.projects-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.95rem;
+}
+
+.projects-table th {
+  background: #f8fafc;
+  padding: 14px 18px;
+  color: #64748b;
+  font-weight: 600;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.projects-table td {
+  padding: 16px 18px;
+  border-bottom: 1px solid #e2e8f0;
+  color: #334155;
+}
+
+.projects-table tr:last-child td {
+  border-bottom: none;
+}
+
+.user-badge {
+  background: #f1f5f9;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+/* ACCIONES DE LA FILA */
+.actions-cell {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.btn-action {
+  padding: 6px 12px;
+  border: 1px solid;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  background: #fff;
+  transition: all 0.2s;
+}
+
+.btn-edit {
+  border-color: #cbd5e1;
+  color: #475569;
+}
+
+.btn-edit:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.btn-delete {
+  border-color: #fca5a5;
+  color: #dc2626;
+}
+
+.btn-delete:hover {
+  background: #fef2f2;
+}
+
+.text-right {
+  text-align: right;
+}
+
+/* REUTILIZACIÓN DE INPUTS Y COMPONENTES GENÉRICOS */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form label {
+  font-size: 0.85rem;
+  color: #475569;
+  font-weight: 500;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form input {
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #333;
+}
+
+.form button[type="submit"] {
+  padding: 12px;
+  background: #1e40af;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.msg {
+  margin-top: 12px;
+  font-size: 0.85rem;
+  text-align: center;
+}
+.msg.ok { color: #16a34a; }
+.msg.error { color: #dc2626; }
+
+.hidden {
+  display: none !important;
+}
+
+/* Estilos para el Modal de Proyectos */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.modal-card {
+  background: #ffffff;
+  padding: 24px;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 500px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  color: #333333;
+}
+
+.modal-header h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #eeeeee;
+  padding-bottom: 8px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Asegura que el botón secundario o de añadir miembro sea idéntico en color al principal */
+#btnAddMemberRow.btn-primary {
+  background-color: #1d4ed8; /* O el azul exacto que uses en tus botones */
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+#btnAddMemberRow.btn-primary:hover {
+  background-color: #1e40af; /* Un tono un poco más oscuro al pasar el cursor */
+}
+
+/* Opcional: Si mantuvieras un textarea en otro lado, esto evita que se estire */
+textarea {
+  resize: none;
+}
