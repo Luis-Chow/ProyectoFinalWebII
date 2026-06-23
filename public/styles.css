@@ -328,6 +328,24 @@ button[type="submit"]:hover,
   margin-top: 0;
 }
 
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.pager:empty {
+  display: none;
+}
+
+.pager-info {
+  font-size: .8rem;
+  color: #b0b3b8;
+  white-space: nowrap;
+}
+
 .perm-on,
 .perm-off {
   border: none;

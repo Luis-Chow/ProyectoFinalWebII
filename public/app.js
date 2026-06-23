@@ -26,6 +26,7 @@ const permMsg = $('#permMsg');
 const permList = $('#permList');
 const permOptionList = $('#permOptionList');
 const permSearch = $('#permSearch');
+const permPager = $('#permPager');
 const formProfile = $('#formProfile');
 const profileCrudMsg = $('#profileCrudMsg');
 const profileCrudList = $('#profileCrudList');
@@ -197,30 +198,27 @@ function renderPermOptions() {
   }
 }
 
-let permMethodsData = [];
+const PERM_PAGE_SIZE = 10;
+let permPage = 0;     // pagina actual (0-based)
+let permTotal = 0;    // total de metodos que coinciden con la busqueda
 
-// Trae los metodos del perfil y los guarda; el pintado/filtrado lo hace renderPermMethods.
+// Trae UNA pagina de metodos del servidor (busqueda + LIMIT/OFFSET) y la pinta agrupada.
+// El navegador nunca tiene mas de PERM_PAGE_SIZE filas, haya 16 o 100.000 permisos.
 async function refreshPermList() {
   const profile_id = Number(permProfileSelect.value);
-  permMethodsData = [];
-  if (profile_id) {
-    const res = await toProcess('Permission', 'listPermissionMethods', [profile_id]);
-    if (res.ok) permMethodsData = res.data.data;
-    else showPermMsg(res.data.msg || 'Error.', false);
-  }
-  renderPermMethods();
-}
-
-// Pinta los metodos AGRUPADOS por objeto y aplica el filtro de busqueda (cliente).
-function renderPermMethods() {
-  const filter = (permSearch.value || '').trim().toLowerCase();
-  const profile_id = Number(permProfileSelect.value);
   permList.innerHTML = '';
+  permTotal = 0;
+  if (!profile_id) { renderPermPager(); return; }
+  const search = (permSearch.value || '').trim();
+  const offset = permPage * PERM_PAGE_SIZE;
+  const res = await toProcess('Permission', 'listPermissionMethods', [profile_id, search, PERM_PAGE_SIZE, offset]);
+  if (!res.ok) { showPermMsg(res.data.msg || 'Error.', false); renderPermPager(); return; }
+  const rows = res.data.data;
+  // Si quedamos en una pagina vacia por encima del total, volvemos a la primera.
+  if (!rows.length && permPage > 0) { permPage = 0; return refreshPermList(); }
+  permTotal = rows.length ? Number(rows[0].total) : 0;
   let lastObject = null;
-  let shown = 0;
-  for (const m of permMethodsData) {
-    const hay = `${m.sub_system_de} ${m.object_de} ${m.method_de}`.toLowerCase();
-    if (filter && !hay.includes(filter)) continue;
+  for (const m of rows) {
     if (m.object_de !== lastObject) {
       lastObject = m.object_de;
       const head = document.createElement('div');
@@ -245,14 +243,39 @@ function renderPermMethods() {
     item.appendChild(label);
     item.appendChild(btn);
     permList.appendChild(item);
-    shown++;
   }
-  if (!shown) {
+  if (!rows.length) {
     const empty = document.createElement('p');
     empty.className = 'hint';
-    empty.textContent = filter ? 'Sin métodos que coincidan.' : 'Sin métodos.';
+    empty.textContent = search ? 'Sin métodos que coincidan.' : 'Sin métodos.';
     permList.appendChild(empty);
   }
+  renderPermPager();
+}
+
+// Controles de paginacion. Solo aparecen si hay mas de una pagina.
+function renderPermPager() {
+  permPager.innerHTML = '';
+  const pages = Math.max(1, Math.ceil(permTotal / PERM_PAGE_SIZE));
+  if (permTotal <= PERM_PAGE_SIZE) return;
+  const prev = document.createElement('button');
+  prev.type = 'button';
+  prev.className = 'mini';
+  prev.textContent = '‹ Anterior';
+  prev.disabled = permPage <= 0;
+  prev.addEventListener('click', () => { permPage--; refreshPermList(); });
+  const info = document.createElement('span');
+  info.className = 'pager-info';
+  info.textContent = `Página ${permPage + 1} de ${pages} · ${permTotal} método(s)`;
+  const next = document.createElement('button');
+  next.type = 'button';
+  next.className = 'mini';
+  next.textContent = 'Siguiente ›';
+  next.disabled = permPage >= pages - 1;
+  next.addEventListener('click', () => { permPage++; refreshPermList(); });
+  permPager.appendChild(prev);
+  permPager.appendChild(info);
+  permPager.appendChild(next);
 }
 
 // ---- Pestaña "Mantenimiento de perfiles" (CRUD de profile) ----
@@ -571,8 +594,14 @@ $('#btnRemove').addEventListener('click', async () => {
   if (ok) refreshUserProfiles();
 });
 
-permProfileSelect.addEventListener('change', () => { refreshPermList(); refreshPermOptions(); });
-permSearch.addEventListener('input', () => { renderPermMethods(); renderPermOptions(); });
+permProfileSelect.addEventListener('change', () => { permPage = 0; refreshPermList(); refreshPermOptions(); });
+
+// Busqueda server-side con debounce: cada cambio reinicia a la pagina 1 y re-consulta.
+let permSearchTimer = null;
+permSearch.addEventListener('input', () => {
+  clearTimeout(permSearchTimer);
+  permSearchTimer = setTimeout(() => { permPage = 0; refreshPermList(); renderPermOptions(); }, 250);
+});
 
 // Al recargar la pagina, restaura la sesion si la cookie sigue viva y reanuda en la
 // seleccion de subsistema.
