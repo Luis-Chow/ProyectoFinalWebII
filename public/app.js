@@ -25,6 +25,7 @@ const permProfileSelect = $('#permProfileSelect');
 const permMsg = $('#permMsg');
 const permList = $('#permList');
 const permOptionList = $('#permOptionList');
+const permSearch = $('#permSearch');
 const formProfile = $('#formProfile');
 const profileCrudMsg = $('#profileCrudMsg');
 const profileCrudList = $('#profileCrudList');
@@ -147,17 +148,30 @@ function optionLabel(option_de) {
 
 // Lista las opciones (menus) con un toggle de concedido por perfil. Si el cambio afecta
 // MI propio perfil activo, refresco la sesion y las pestañas en vivo.
+let permOptionsData = [];
+
 async function refreshPermOptions() {
   const profile_id = Number(permProfileSelect.value);
+  permOptionsData = [];
+  if (profile_id) {
+    const res = await toProcess('Permission', 'listPermissionOptions', [profile_id]);
+    if (res.ok) permOptionsData = res.data.data;
+    else showPermMsg(res.data.msg || 'Error.', false);
+  }
+  renderPermOptions();
+}
+
+function renderPermOptions() {
+  const filter = (permSearch.value || '').trim().toLowerCase();
+  const profile_id = Number(permProfileSelect.value);
   permOptionList.innerHTML = '';
-  if (!profile_id) return;
-  const res = await toProcess('Permission', 'listPermissionOptions', [profile_id]);
-  if (!res.ok) { showPermMsg(res.data.msg || 'Error.', false); return; }
-  for (const o of res.data.data) {
+  for (const o of permOptionsData) {
+    const label = optionLabel(o.option_de);
+    if (filter && !label.toLowerCase().includes(filter) && !o.option_de.toLowerCase().includes(filter)) continue;
     const item = document.createElement('div');
     item.className = 'item';
-    const label = document.createElement('span');
-    label.textContent = optionLabel(o.option_de);
+    const lbl = document.createElement('span');
+    lbl.textContent = label;
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = o.granted ? 'perm-on' : 'perm-off';
@@ -177,23 +191,47 @@ async function refreshPermOptions() {
         }
       }
     });
-    item.appendChild(label);
+    item.appendChild(lbl);
     item.appendChild(btn);
     permOptionList.appendChild(item);
   }
 }
 
+let permMethodsData = [];
+
+// Trae los metodos del perfil y los guarda; el pintado/filtrado lo hace renderPermMethods.
 async function refreshPermList() {
   const profile_id = Number(permProfileSelect.value);
+  permMethodsData = [];
+  if (profile_id) {
+    const res = await toProcess('Permission', 'listPermissionMethods', [profile_id]);
+    if (res.ok) permMethodsData = res.data.data;
+    else showPermMsg(res.data.msg || 'Error.', false);
+  }
+  renderPermMethods();
+}
+
+// Pinta los metodos AGRUPADOS por objeto y aplica el filtro de busqueda (cliente).
+function renderPermMethods() {
+  const filter = (permSearch.value || '').trim().toLowerCase();
+  const profile_id = Number(permProfileSelect.value);
   permList.innerHTML = '';
-  if (!profile_id) return;
-  const res = await toProcess('Permission', 'listPermissionMethods', [profile_id]);
-  if (!res.ok) { showPermMsg(res.data.msg || 'Error.', false); return; }
-  for (const m of res.data.data) {
+  let lastObject = null;
+  let shown = 0;
+  for (const m of permMethodsData) {
+    const hay = `${m.sub_system_de} ${m.object_de} ${m.method_de}`.toLowerCase();
+    if (filter && !hay.includes(filter)) continue;
+    if (m.object_de !== lastObject) {
+      lastObject = m.object_de;
+      const head = document.createElement('div');
+      head.className = 'group-head';
+      head.textContent = `${m.sub_system_de} · ${m.object_de}`;
+      permList.appendChild(head);
+    }
     const item = document.createElement('div');
     item.className = 'item';
     const label = document.createElement('span');
-    label.textContent = `${m.sub_system_de} · ${m.object_de} · ${m.method_de}`;
+    label.textContent = m.method_de;
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = m.granted ? 'perm-on' : 'perm-off';
@@ -201,16 +239,19 @@ async function refreshPermList() {
     btn.addEventListener('click', async () => {
       const methodName = m.granted ? 'revokeMethod' : 'grantMethod';
       const r = await toProcess('Permission', methodName, [profile_id, m.method_id]);
-      if (r.ok) {
-        showPermMsg(m.granted ? 'Permiso quitado.' : 'Permiso concedido.', true);
-        refreshPermList();
-      } else {
-        showPermMsg(r.data.msg || 'Error.', false);
-      }
+      if (r.ok) { showPermMsg(m.granted ? 'Permiso quitado.' : 'Permiso concedido.', true); refreshPermList(); }
+      else showPermMsg(r.data.msg || 'Error.', false);
     });
     item.appendChild(label);
     item.appendChild(btn);
     permList.appendChild(item);
+    shown++;
+  }
+  if (!shown) {
+    const empty = document.createElement('p');
+    empty.className = 'hint';
+    empty.textContent = filter ? 'Sin métodos que coincidan.' : 'Sin métodos.';
+    permList.appendChild(empty);
   }
 }
 
@@ -531,6 +572,7 @@ $('#btnRemove').addEventListener('click', async () => {
 });
 
 permProfileSelect.addEventListener('change', () => { refreshPermList(); refreshPermOptions(); });
+permSearch.addEventListener('input', () => { renderPermMethods(); renderPermOptions(); });
 
 // Al recargar la pagina, restaura la sesion si la cookie sigue viva y reanuda en la
 // seleccion de subsistema.
