@@ -57,6 +57,18 @@ const businessMethods = {
     'security.Permission.revokeMethod': async (ctx) => {
         const [profile_id, method_id] = ctx.params || [];
         if (!profile_id || !method_id) throw new AppError(400, 'Faltan profile_id o method_id.');
+
+        // Candado anti-bloqueo: NO puedes quitarte a TI MISMO (perfil activo) un metodo del
+        // objeto Permission (listPermissionMethods/grantMethod/revokeMethod). Si lo hicieras te
+        // quedarias sin poder gestionar permisos y sin forma de revertirlo desde la app.
+        const activeProfile = ctx.session && ctx.session.profile_id;
+        if (Number(profile_id) === Number(activeProfile)) {
+            const r = await global.dbc.exeQuery(global.dbc.getSentence('security', 'isPermissionMethod'), [method_id]);
+            if (r[0] && r[0].is_perm) {
+                throw new AppError(409, 'No puedes quitarte a ti mismo los permisos de gestión de permisos.');
+            }
+        }
+
         await global.dbc.exeQuery(global.dbc.getSentence('security', 'revokeMethod'), [profile_id, method_id]);
         await global.sec.loadPermissionMethod();   // refresca el Map de permisos
         return { revoked: true };

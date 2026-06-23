@@ -8,6 +8,7 @@
     "addUserProfile": "INSERT INTO user_profile (user_id, profile_id) VALUES ($1, $2) ON CONFLICT (user_id, profile_id) DO NOTHING",
     "removeUserProfile": "DELETE FROM user_profile WHERE user_id = $1 AND profile_id = $2",
     "listPermissionMethods": "SELECT m.method_id, m.method_de, o.object_de, s.sub_system_de, (pm.permission_method_id IS NOT NULL) AS granted FROM method m INNER JOIN object o ON o.object_id = m.object_id INNER JOIN sub_system s ON s.sub_system_id = o.sub_system_id LEFT JOIN permission_method pm ON pm.method_id = m.method_id AND pm.profile_id = $1 ORDER BY s.sub_system_de, o.object_de, m.method_id",
+    "isPermissionMethod": "SELECT EXISTS(SELECT 1 FROM method m INNER JOIN object o ON o.object_id = m.object_id WHERE m.method_id = $1 AND o.object_de = 'Permission') AS is_perm",
     "grantMethod": "INSERT INTO permission_method (profile_id, method_id) VALUES ($1, $2) ON CONFLICT (profile_id, method_id) DO NOTHING",
     "revokeMethod": "DELETE FROM permission_method WHERE profile_id = $1 AND method_id = $2"
   },
