@@ -228,6 +228,28 @@ button[type="submit"]:hover,
   align-items: center;
 }
 
+.audit-item {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.audit-meta {
+  font-size: .72rem;
+  color: #8a8d91;
+}
+
+.audit-action {
+  font-weight: 700;
+  color: #e4e6eb;
+}
+
+.audit-desc {
+  font-size: .86rem;
+  color: #d0d7de;
+  word-break: break-word;
+}
+
 .row-actions {
   display: flex;
   gap: 6px;

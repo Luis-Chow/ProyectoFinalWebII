@@ -127,6 +127,12 @@ const businessMethods = {
         await global.sec.loadPermissionMethod();
         await global.sec.loadPermissionOption();
         return { deleted: true };
+    },
+
+    'security.Audit.listAudit': async (ctx) => {
+        const [limit = 50] = ctx.params || [];
+        const rows = await global.dbc.exeQuery(global.dbc.getSentence('security', 'listAudit'), [Number(limit)]);
+        return rows;
     }
     // 👉 Aqui viviran mas adelante insertProject, insertActivity, insertNotification...
 };

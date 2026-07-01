@@ -30,6 +30,8 @@ const permPager = $('#permPager');
 const formProfile = $('#formProfile');
 const profileCrudMsg = $('#profileCrudMsg');
 const profileCrudList = $('#profileCrudList');
+const auditMsg = $('#auditMsg');
+const auditList = $('#auditList');
 
 // Estado de la sesion en el cliente.
 let currentSession = null;
@@ -60,6 +62,10 @@ function showManageMsg(text, ok = true) {
 function showPermMsg(text, ok = true) {
   permMsg.textContent = text || '';
   permMsg.className = 'msg ' + (ok ? 'ok' : 'error');
+}
+function showAuditMsg(text, ok = true) {
+  auditMsg.textContent = text || '';
+  auditMsg.className = 'msg ' + (ok ? 'ok' : 'error');
 }
 function showSubsystemMsg(text, ok = true) {
   subsystemMsg.textContent = text || '';
@@ -332,6 +338,42 @@ async function loadProfileCrud() {
   }
 }
 
+// ---- Pestaña "Auditoría" ----
+async function loadAuditData() {
+  showAuditMsg('');
+  auditList.innerHTML = '';
+  const res = await toProcess('Audit', 'listAudit', [50]);
+  if (!res.ok) {
+    showAuditMsg(res.data.msg || 'No tienes permiso para ver la auditoría.', false);
+    return;
+  }
+  const rows = res.data.data || [];
+  if (!rows.length) {
+    const empty = document.createElement('p');
+    empty.className = 'hint';
+    empty.textContent = 'No hay eventos registrados aún.';
+    auditList.appendChild(empty);
+    return;
+  }
+  for (const item of rows) {
+    const entry = document.createElement('div');
+    entry.className = 'item audit-item';
+    const meta = document.createElement('div');
+    meta.className = 'audit-meta';
+    meta.textContent = `${item.date} ${item.hour} · ${item.user_na}`;
+    const action = document.createElement('div');
+    action.className = 'audit-action';
+    action.textContent = item.action;
+    const desc = document.createElement('div');
+    desc.className = 'audit-desc';
+    desc.textContent = item.description;
+    entry.appendChild(meta);
+    entry.appendChild(action);
+    entry.appendChild(desc);
+    auditList.appendChild(entry);
+  }
+}
+
 // ---- Pestaña "Mantenimiento de usuarios" (CU-02) ----
 function loadUserMgmt() {
   // El formulario de crear cuenta solo se muestra a quien tiene permiso.
@@ -395,7 +437,8 @@ const TABS = [
   { id: 'userMgmtBox', label: 'Mantenimiento de usuarios',   load: loadUserMgmt },
   { id: 'profileBox',  label: 'Mantenimiento de perfiles',   load: loadProfileCrud },
   { id: 'manageBox',   label: 'Asignar perfiles a usuarios', load: loadManageData },
-  { id: 'permBox',     label: 'Asignar permisos',            load: loadPermData }
+  { id: 'permBox',     label: 'Asignar permisos',            load: loadPermData },
+  { id: 'auditBox',    label: 'Auditoría',                   load: loadAuditData }
 ];
 
 let activeTabId = null;
