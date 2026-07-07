@@ -236,17 +236,19 @@ const Security = class {
         }
     }
 
-    // BD -> Map. Key: sub_system_de-option_de-profile_id, value: true
+    // BD -> Map. Key: profile_id, value: [option_de, ...] = menus visibles del perfil.
     async loadPermissionOption() {
         try {
             const sentence = global.dbc.getSentence('model', 'loadPermissionOption');
             const rows = await global.dbc.exeQuery(sentence);
             this.permissionOptionMap.clear();
             for (const r of rows) {
-                const key = buildKey(r.sub_system_de, r.option_de, r.profile_id);
-                this.permissionOptionMap.set(key, true);
+                if (!this.permissionOptionMap.has(r.profile_id)) {
+                    this.permissionOptionMap.set(r.profile_id, []);
+                }
+                this.permissionOptionMap.get(r.profile_id).push(r.option_de);
             }
-            console.log(`Seguridad: ${this.permissionOptionMap.size} permiso(s) de opcion en cache.`);
+            console.log(`Seguridad: ${rows.length} permiso(s) de opcion en cache.`);
         } catch (err) {
             console.error('Error en loadPermissionOption:', err);
         }
@@ -261,13 +263,10 @@ const Security = class {
         return false;
     }
 
-    // Consulta el Map: ¿el perfil tiene acceso a esta opcion (de menu)?
-    getPermissionOption(j, profile_id) {
-        const key = buildKey(j.subsystem, j.optionName, profile_id);
-        if (this.permissionOptionMap.has(key)) {
-            return this.permissionOptionMap.get(key);
-        }
-        return false;
+    // Consulta el Map (no la BD): menus (option_de) que el perfil puede ver.
+    // grant/revokeOption recargan la cache, asi que siempre esta al dia.
+    getVisibleOptions(profile_id) {
+        return this.permissionOptionMap.get(profile_id) || [];
     }
 
     // Ejecuta el metodo solicitado. Si es un metodo "rico" (registrado en businessMethods)

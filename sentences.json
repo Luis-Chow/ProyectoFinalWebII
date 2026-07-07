@@ -21,8 +21,7 @@
     "grantOption": "INSERT INTO permission_option (profile_id, option_id) VALUES ($1, $2) ON CONFLICT (profile_id, option_id) DO NOTHING",
     "revokeOption": "DELETE FROM permission_option WHERE profile_id = $1 AND option_id = $2",
     "getOptionDe": "SELECT option_de FROM option WHERE option_id = $1",
-    "listVisibleOptions": "SELECT op.option_de FROM permission_option po INNER JOIN option op ON op.option_id = po.option_id WHERE po.profile_id = $1",
-    "listAudit": "SELECT a.id, a.date, a.hour, a.action, a.description, u.user_na FROM audit a INNER JOIN \"user\" u ON u.user_id = a.user_id ORDER BY a.id DESC LIMIT $1"
+    "listAudit": "SELECT a.id, to_char(a.date, 'DD/MM/YYYY') AS date, to_char(a.hour, 'HH24:MI:SS') AS hour, a.action, a.description, u.user_na FROM audit a INNER JOIN \"user\" u ON u.user_id = a.user_id ORDER BY a.id DESC LIMIT $1"
   },
   "proyectos": {
     "listProyects": "SELECT p.id, p.name, p.status_id, s.status_de, COALESCE((SELECT string_agg(pe.person_na || ' ' || pe.person_ln, ', ') FROM proyect_role pr INNER JOIN proyect_role_person prp ON prp.proyect_role_id = pr.id INNER JOIN person pe ON pe.person_id = prp.person_id WHERE pr.proyect_id = p.id AND pr.name = 'Líder'), '—') AS leader_na, (SELECT COUNT(*)::int FROM proyect_role pr2 INNER JOIN proyect_role_person prp2 ON prp2.proyect_role_id = pr2.id WHERE pr2.proyect_id = p.id) AS members FROM proyect p INNER JOIN status s ON s.status_id = p.status_id ORDER BY p.id DESC",
@@ -63,7 +62,7 @@
     "createProyectRolePerson": "CREATE TABLE IF NOT EXISTS proyect_role_person (id SERIAL PRIMARY KEY, proyect_role_id INT NOT NULL REFERENCES proyect_role(id) ON DELETE CASCADE, person_id INT NOT NULL REFERENCES person(person_id) ON DELETE CASCADE)",
 
     "loadPermissionMethod": "SELECT pm.profile_id, m.method_de, o.object_de, s.sub_system_de FROM permission_method pm INNER JOIN method m ON m.method_id = pm.method_id INNER JOIN object o ON o.object_id = m.object_id INNER JOIN sub_system s ON s.sub_system_id = o.sub_system_id",
-    "loadPermissionOption": "SELECT po.profile_id, op.option_de, s.sub_system_de FROM permission_option po INNER JOIN option op ON op.option_id = po.option_id INNER JOIN sub_system s ON s.sub_system_id = op.sub_system_id",
+    "loadPermissionOption": "SELECT po.profile_id, op.option_de FROM permission_option po INNER JOIN option op ON op.option_id = po.option_id",
 
     "insertUserProfile": "INSERT INTO user_profile (user_id, profile_id) VALUES ($1, $2) ON CONFLICT (user_id, profile_id) DO NOTHING",
     "insertAudit": "INSERT INTO audit (user_id, date, hour, action, description) VALUES ($1, CURRENT_DATE, LOCALTIME, $2, $3)",

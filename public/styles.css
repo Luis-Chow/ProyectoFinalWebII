@@ -36,31 +36,6 @@ h1 {
   color: #e4e6eb;
 }
 
-/* Contenedor de las 3 columnas. flex-wrap = se apilan en pantallas estrechas (responsivo). */
-.columns {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 18px;
-  margin-top: 20px;
-  align-items: flex-start;
-}
-
-/* Cada bloque (Crear cuenta / Perfiles / Listar) es una columna. */
-.box {
-  flex: 1 1 240px;
-  min-width: 0;
-  padding: 18px;
-  background: #1e1f20;
-  border: 1px solid #3e4042;
-  border-radius: 10px;
-}
-
-.box h2 {
-  font-size: 1rem;
-  margin-bottom: 14px;
-  color: #e4e6eb;
-}
-
 /* Barra superior: identidad a la izquierda, cerrar sesion a la derecha. */
 .panel-top {
   display: flex;
@@ -550,56 +525,12 @@ button[type="submit"]:hover,
   }
 }
 
-/* ---- Pantalla "Perfiles" (selección de perfil activo tras el login) ---- */
+/* ---- Pantalla "Selecciona un subsistema" (tras el login) ---- */
 .select-title {
   font-size: 1.15rem;
   margin-bottom: 6px;
   text-align: center;
   color: #e4e6eb;
-}
-
-#profileSelect .hint {
-  text-align: center;
-  margin-top: 0;
-}
-
-.profile-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin: 18px 0;
-}
-
-.profile-card {
-  padding: 16px;
-  border: 1px solid #3e4042;
-  border-radius: 10px;
-  background: #1e1f20;
-  color: #e4e6eb;
-  font-size: 1rem;
-  cursor: pointer;
-  text-align: center;
-  transition: border-color .15s, background .15s;
-}
-
-.profile-card:hover {
-  border-color: #2d88ff;
-  background: #2a2b2c;
-}
-
-#btnCancelProfile {
-  width: 100%;
-  padding: 11px;
-  border: none;
-  border-radius: 8px;
-  background: #3a3b3c;
-  color: #e4e6eb;
-  font-size: .95rem;
-  cursor: pointer;
-}
-
-#btnCancelProfile:hover {
-  background: #4e4f50;
 }
 
 select {

@@ -126,7 +126,7 @@ class Session {
             }
             this.createSession(user);
             const profiles = await this.getProfiles(user.user_id);
-            return { "ok": true, "profiles": profiles, "data": this.getDataSession() };
+            return { "ok": true, "profiles": profiles };
         } catch (err) {
             console.error('Error en login:', err);
             return { "ok": false, "msg": 'Error interno del servidor.' };

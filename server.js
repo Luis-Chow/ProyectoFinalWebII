@@ -19,31 +19,15 @@ Session.initMiddleware(app);
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// El permiso para crear cuentas vive en la BD (permission_method), igual que cualquier otro metodo.
-// Se usa para decirle al cliente si debe habilitar el formulario de "Crear cuenta".
+// Flags de sesion que el cliente SI usa para ajustar la UI (el resto de la visibilidad
+// la deciden las opciones de menu). La seguridad real siempre se valida en /toProcess.
 const REGISTER_J = { subsystem: 'security', objectName: 'User', methodName: 'insertUser' };
-// Permiso para asignar/quitar perfiles a otros usuarios (tambien vive en la BD).
-const MANAGE_PROFILES_J = { subsystem: 'security', objectName: 'UserProfile', methodName: 'addUserProfile' };
-// Permiso para gestionar permisos de metodos por perfil (CU-04).
-const MANAGE_PERMS_J = { subsystem: 'security', objectName: 'Permission', methodName: 'grantMethod' };
-// Permiso para listar usuarios (decide si se muestra la pestaña "Listar usuarios").
-const LIST_USERS_J = { subsystem: 'security', objectName: 'User', methodName: 'listUsers' };
-// Permiso para el mantenimiento de perfiles (CRUD de profile).
-const CRUD_PROFILES_J = { subsystem: 'security', objectName: 'Profile', methodName: 'insertProfile' };
-// Permiso para activar/desactivar usuarios (decide si se muestran los toggles de estado).
 const MANAGE_USERS_J = { subsystem: 'security', objectName: 'User', methodName: 'setUserStatus' };
 
 // Subsistemas a los que el perfil activo tiene acceso (al menos un metodo u opcion permitido).
 // Es la "subsystem list" que la pizarra entrega tras el login.
 async function getSubsystems(profile_id) {
     return await global.dbc.exeQuery(global.dbc.getSentence('security', 'listAccessibleSubsystems'), [profile_id]);
-}
-
-// Opciones de menu visibles para el perfil (permission_option). El front las usa para
-// decidir que pestañas mostrar: opcion = "puede VER este menu".
-async function getVisibleOptions(profile_id) {
-    const rows = await global.dbc.exeQuery(global.dbc.getSentence('security', 'listVisibleOptions'), [profile_id]);
-    return rows.map((r) => r.option_de);
 }
 
 // Auditoria centralizada de /toProcess: que metodo deja que accion en la tabla audit.
@@ -91,16 +75,13 @@ async function audit(ses, action, description) {
 
 // Arma la respuesta de sesion: agrega los permisos (no se guardan en la cookie).
 // visibleOptions = menus que el perfil puede ver (permission_option) -> manejan las pestañas.
+// Todo sale de la cache de Security: aqui no se toca la BD.
 async function withPermissions(data) {
     return {
         ...data,
         canRegister: global.sec.getPermissionMethod(REGISTER_J, data.profile_id),
-        canManageProfiles: global.sec.getPermissionMethod(MANAGE_PROFILES_J, data.profile_id),
-        canManagePermissions: global.sec.getPermissionMethod(MANAGE_PERMS_J, data.profile_id),
-        canListUsers: global.sec.getPermissionMethod(LIST_USERS_J, data.profile_id),
-        canCrudProfiles: global.sec.getPermissionMethod(CRUD_PROFILES_J, data.profile_id),
         canManageUsers: global.sec.getPermissionMethod(MANAGE_USERS_J, data.profile_id),
-        visibleOptions: await getVisibleOptions(data.profile_id)
+        visibleOptions: global.sec.getVisibleOptions(data.profile_id)
     };
 }
 

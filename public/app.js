@@ -53,42 +53,22 @@ let currentSubsystem = null;
 const SUBSYSTEM_LABELS = { security: 'Seguridad', proyectos: 'Proyectos' };
 const subsystemLabel = (de) => SUBSYSTEM_LABELS[de] || de;
 
-function showMsg(text, ok = true) {
-  msg.textContent = text || '';
-  msg.className = 'msg ' + (ok ? 'ok' : 'error');
-}
-function showRegisterMsg(text, ok = true) {
-  registerMsg.textContent = text || '';
-  registerMsg.className = 'msg ' + (ok ? 'ok' : 'error');
-}
-function showUsersMsg(text, ok = true) {
-  usersMsg.textContent = text || '';
-  usersMsg.className = 'msg ' + (ok ? 'ok' : 'error');
-}
-function showManageMsg(text, ok = true) {
-  manageMsg.textContent = text || '';
-  manageMsg.className = 'msg ' + (ok ? 'ok' : 'error');
-}
-function showPermMsg(text, ok = true) {
-  permMsg.textContent = text || '';
-  permMsg.className = 'msg ' + (ok ? 'ok' : 'error');
-}
-function showAuditMsg(text, ok = true) {
-  auditMsg.textContent = text || '';
-  auditMsg.className = 'msg ' + (ok ? 'ok' : 'error');
-}
-function showSubsystemMsg(text, ok = true) {
-  subsystemMsg.textContent = text || '';
-  subsystemMsg.className = 'msg ' + (ok ? 'ok' : 'error');
-}
-function showProyectMsg(text, ok = true) {
-  proyectMsg.textContent = text || '';
-  proyectMsg.className = 'msg ' + (ok ? 'ok' : 'error');
-}
-function showMemberMsg(text, ok = true) {
-  memberMsg.textContent = text || '';
-  memberMsg.className = 'msg ' + (ok ? 'ok' : 'error');
-}
+// Todas las cajitas de mensaje funcionan igual (texto + color ok/error): una fabrica
+// que fija el elemento destino evita repetir la misma funcion por cada pestaña.
+const msgIn = (el) => (text, ok = true) => {
+  el.textContent = text || '';
+  el.className = 'msg ' + (ok ? 'ok' : 'error');
+};
+const showMsg = msgIn(msg);
+const showRegisterMsg = msgIn(registerMsg);
+const showUsersMsg = msgIn(usersMsg);
+const showManageMsg = msgIn(manageMsg);
+const showPermMsg = msgIn(permMsg);
+const showAuditMsg = msgIn(auditMsg);
+const showSubsystemMsg = msgIn(subsystemMsg);
+const showProfileCrudMsg = msgIn(profileCrudMsg);
+const showProyectMsg = msgIn(proyectMsg);
+const showMemberMsg = msgIn(memberMsg);
 
 async function api(path, options = {}) {
   const res = await fetch(path, {
@@ -118,6 +98,16 @@ function fillProfileOptions(select, profiles) {
     opt.textContent = p.profile_de;
     select.appendChild(opt);
   }
+}
+
+// Boton chico de fila (Renombrar, Eliminar, Quitar...), igual en todas las listas.
+function miniButton(label, onClick, danger = false) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'mini' + (danger ? ' danger' : '');
+  btn.textContent = label;
+  btn.addEventListener('click', onClick);
+  return btn;
 }
 
 // ---- Pestaña "Perfiles de usuarios" ----
@@ -304,11 +294,6 @@ function renderPermPager() {
 }
 
 // ---- Pestaña "Mantenimiento de perfiles" (CRUD de profile) ----
-function showProfileCrudMsg(text, ok = true) {
-  profileCrudMsg.textContent = text || '';
-  profileCrudMsg.className = 'msg ' + (ok ? 'ok' : 'error');
-}
-
 async function loadProfileCrud() {
   showProfileCrudMsg('');
   profileCrudList.innerHTML = '';
@@ -324,11 +309,7 @@ async function loadProfileCrud() {
     const actions = document.createElement('span');
     actions.className = 'row-actions';
 
-    const editBtn = document.createElement('button');
-    editBtn.type = 'button';
-    editBtn.className = 'mini';
-    editBtn.textContent = 'Renombrar';
-    editBtn.addEventListener('click', async () => {
+    actions.appendChild(miniButton('Renombrar', async () => {
       const nuevo = prompt('Nuevo nombre del perfil:', p.profile_de);
       if (nuevo == null) return;
       const name = nuevo.trim();
@@ -336,21 +317,14 @@ async function loadProfileCrud() {
       const r = await toProcess('Profile', 'updateProfile', [p.profile_id, name]);
       showProfileCrudMsg(r.ok ? 'Perfil renombrado.' : (r.data.msg || 'Error.'), r.ok);
       if (r.ok) loadProfileCrud();
-    });
+    }));
 
-    const delBtn = document.createElement('button');
-    delBtn.type = 'button';
-    delBtn.className = 'mini danger';
-    delBtn.textContent = 'Eliminar';
-    delBtn.addEventListener('click', async () => {
+    actions.appendChild(miniButton('Eliminar', async () => {
       if (!confirm(`¿Eliminar el perfil "${p.profile_de}"?`)) return;
       const r = await toProcess('Profile', 'deleteProfile', [p.profile_id]);
       showProfileCrudMsg(r.ok ? 'Perfil eliminado.' : (r.data.msg || 'Error.'), r.ok);
       if (r.ok) loadProfileCrud();
-    });
-
-    actions.appendChild(editBtn);
-    actions.appendChild(delBtn);
+    }, true));
     item.appendChild(nameSpan);
     item.appendChild(actions);
     profileCrudList.appendChild(item);
@@ -395,16 +369,6 @@ async function loadAuditData() {
 
 // ---- Pestaña "Mantenimiento de proyectos" (CU-06/CU-07, subsistema proyectos) ----
 let currentProyect = null; // proyecto elegido con el boton "Miembros"
-
-// Boton chico de fila (mismo look que en usuarios/perfiles).
-function miniButton(label, onClick, danger = false) {
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'mini' + (danger ? ' danger' : '');
-  btn.textContent = label;
-  btn.addEventListener('click', onClick);
-  return btn;
-}
 
 async function loadProyectData() {
   showProyectMsg('');
@@ -560,8 +524,15 @@ async function refreshUsersList() {
     const item = document.createElement('div');
     item.className = 'item';
 
+    // Construido con textContent (nunca innerHTML con datos escritos por un usuario: XSS).
     const info = document.createElement('span');
-    info.innerHTML = `#${u.user_id} · <b>${u.user_na}</b> <span class="tag">${u.profiles}</span>`;
+    info.append(`#${u.user_id} · `);
+    const name = document.createElement('b');
+    name.textContent = u.user_na;
+    const profTag = document.createElement('span');
+    profTag.className = 'tag';
+    profTag.textContent = u.profiles;
+    info.append(name, ' ', profTag);
 
     const right = document.createElement('span');
     right.className = 'row-actions';
@@ -574,20 +545,16 @@ async function refreshUsersList() {
 
     // Toggle activar/desactivar: solo si tiene permiso; bloqueado sobre tu propia cuenta activa.
     if (currentSession.canManageUsers) {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'mini' + (active ? ' danger' : '');
-      btn.textContent = active ? 'Desactivar' : 'Activar';
-      if (active && u.user_id === currentSession.user_id) {
-        btn.disabled = true;
-        btn.title = 'No puedes desactivar tu propia cuenta';
-      }
-      btn.addEventListener('click', async () => {
+      const btn = miniButton(active ? 'Desactivar' : 'Activar', async () => {
         const newStatus = active ? 2 : 1;
         const r = await toProcess('User', 'setUserStatus', [u.user_id, newStatus]);
         showUsersMsg(r.ok ? `Usuario ${active ? 'desactivado' : 'activado'}.` : (r.data.msg || 'Error.'), r.ok);
         if (r.ok) refreshUsersList();
-      });
+      }, active);
+      if (active && u.user_id === currentSession.user_id) {
+        btn.disabled = true;
+        btn.title = 'No puedes desactivar tu propia cuenta';
+      }
       right.appendChild(btn);
     }
 
@@ -700,14 +667,19 @@ function renderSubsystemSelect() {
   if (!hasAny) showSubsystemMsg('Tu perfil actual no tiene subsistemas disponibles.', false);
 }
 
+// Barra de identidad: quien esta conectado, con que perfil y en que subsistema.
+function updateWhoami() {
+  whoami.textContent =
+    `Conectado como ${currentSession.user_na} (${currentSession.profile_de}) · ${subsystemLabel(currentSubsystem)}`;
+}
+
 // Ventana principal del subsistema elegido: pestañas verticales + selector de perfil.
 function renderWorkspace() {
   hideAllScreens();
   title.classList.add('hidden');
   msg.classList.add('hidden');
   panel.classList.remove('hidden');
-  whoami.textContent =
-    `Conectado como ${currentSession.user_na} (${currentSession.profile_de}) · ${subsystemLabel(currentSubsystem)}`;
+  updateWhoami();
   buildTabs(currentSession);
   renderProfileSwitcher();
 }
@@ -762,8 +734,7 @@ profileSwitchSelect.addEventListener('change', async () => {
       renderSubsystemSelect();
       return;
     }
-    whoami.textContent =
-      `Conectado como ${currentSession.user_na} (${currentSession.profile_de}) · ${subsystemLabel(currentSubsystem)}`;
+    updateWhoami();
     buildTabs(currentSession);
   } else {
     showMsg(data.msg || 'No se pudo cambiar de perfil.', false);
