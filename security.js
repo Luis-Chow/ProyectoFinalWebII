@@ -133,8 +133,82 @@ const businessMethods = {
         const [limit = 50] = ctx.params || [];
         const rows = await global.dbc.exeQuery(global.dbc.getSentence('security', 'listAudit'), [Number(limit)]);
         return rows;
+    },
+
+    // ---- Subsistema de proyectos (CU-06 / CU-07) ----
+
+    // CU-06: crear un proyecto. El cliente manda {name, leader_person_id}; el estado lo
+    // fuerza el servidor (todo proyecto nace Activo). El lider NO es una columna de proyect:
+    // en el modelo canonico es un proyect_role 'Líder' con la persona enlazada.
+    'proyectos.Proyect.insertProyect': async (ctx) => {
+        const { name, leader_person_id } = ctx.params || {};
+        const errors = [];
+        const cleanName = (name || '').trim();
+        if (cleanName.length < 3) errors.push('El nombre del proyecto debe tener al menos 3 caracteres.');
+        if (!leader_person_id) errors.push('Debes elegir el líder del proyecto.');
+        if (errors.length) throw new AppError(400, 'No se pudo crear el proyecto: revisa los requisitos.', errors);
+
+        const person = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'personExists'), [leader_person_id]);
+        if (!person.length) throw new AppError(404, 'La persona elegida como líder no existe.');
+
+        const STATUS_ACTIVO = 1;
+        // Transaccion: proyecto + rol 'Líder' + persona enlazada se crean juntos, o nada.
+        return await ctx.tx(async (q) => {
+            const rows = await q(global.dbc.getSentence('proyectos', 'insertProyect'), [STATUS_ACTIVO, cleanName]);
+            const proyectId = rows[0].id;
+            const role = await q(global.dbc.getSentence('proyectos', 'insertProyectRole'), [proyectId, 'Líder']);
+            await q(global.dbc.getSentence('proyectos', 'insertProyectRolePerson'), [role[0].id, leader_person_id]);
+            return { id: proyectId, name: cleanName };
+        });
+    },
+
+    // CU-07: asignar una persona a un proyecto con un rol (cargo dentro del proyecto).
+    // El rol se busca o se crea en proyect_role; la persona se enlaza via proyect_role_person.
+    'proyectos.Proyect.assignMember': async (ctx) => {
+        const [proyect_id, person_id, role_name] = ctx.params || [];
+        const cleanRole = (role_name || '').trim();
+        if (!proyect_id || !person_id || !cleanRole) {
+            throw new AppError(400, 'Faltan proyecto, persona o rol.');
+        }
+
+        const proyect = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'getProyect'), [proyect_id]);
+        if (!proyect.length) throw new AppError(404, 'El proyecto no existe.');
+        const STATUS_CULMINADO = 3;
+        if (proyect[0].status_id === STATUS_CULMINADO) {
+            throw new AppError(409, 'No puedes asignar miembros a un proyecto culminado.');
+        }
+
+        const person = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'personExists'), [person_id]);
+        if (!person.length) throw new AppError(404, 'La persona no existe.');
+
+        const dup = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'memberExists'), [proyect_id, person_id]);
+        if (dup[0] && dup[0].dup) throw new AppError(409, 'Esa persona ya es miembro del proyecto.');
+
+        return await ctx.tx(async (q) => {
+            let role = await q(global.dbc.getSentence('proyectos', 'findProyectRole'), [proyect_id, cleanRole]);
+            if (!role.length) {
+                role = await q(global.dbc.getSentence('proyectos', 'insertProyectRole'), [proyect_id, cleanRole]);
+            }
+            await q(global.dbc.getSentence('proyectos', 'insertProyectRolePerson'), [role[0].id, person_id]);
+            return { assigned: true };
+        });
+    },
+
+    // CU-15 (base): marcar un proyecto Activo o Culminado. El servidor solo acepta esos
+    // dos estados (Inactivo es de usuarios, no de proyectos).
+    'proyectos.Proyect.setProyectStatus': async (ctx) => {
+        const [proyect_id, status_id] = ctx.params || [];
+        const STATUS_ACTIVO = 1;
+        const STATUS_CULMINADO = 3;
+        if (!proyect_id || ![STATUS_ACTIVO, STATUS_CULMINADO].includes(Number(status_id))) {
+            throw new AppError(400, 'Estado de proyecto no válido (Activo o Culminado).');
+        }
+        const proyect = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'getProyect'), [proyect_id]);
+        if (!proyect.length) throw new AppError(404, 'El proyecto no existe.');
+        await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'setProyectStatus'), [proyect_id, status_id]);
+        return { updated: true };
     }
-    // 👉 Aqui viviran mas adelante insertProject, insertActivity, insertNotification...
+    // 👉 Aqui viviran mas adelante insertActivity, insertNotification (hoja de tiempo)...
 };
 
 // Security_Object de la pizarra: cachea los permisos de la BD en Maps.

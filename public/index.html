@@ -126,6 +126,50 @@
             <div id="auditList" class="list"></div>
           </section>
 
+          <!-- Mantenimiento de proyectos (CU-06) + asignación de miembros (CU-07).
+               Pertenece al subsistema "proyectos": solo se ve con esa opción de menú. -->
+          <section id="proyectMgmtBox" class="tabpanel hidden">
+            <h2>Mantenimiento de proyectos</h2>
+
+            <div id="createProyectBlock">
+              <h3 class="subhead">Crear proyecto</h3>
+              <form id="formProyect" class="form">
+                <label>Nombre del proyecto
+                  <input type="text" name="name" maxlength="150" required>
+                </label>
+                <label>Líder del proyecto
+                  <select id="proyectLeaderSelect"></select>
+                </label>
+                <button type="submit">Crear proyecto</button>
+              </form>
+            </div>
+
+            <p id="proyectMsg" class="msg"></p>
+            <h3 class="subhead">Proyectos</h3>
+            <div id="proyectList" class="list"></div>
+
+            <!-- Aparece al pulsar "Miembros" en un proyecto de la lista. -->
+            <div id="proyectMembersBlock" class="hidden">
+              <h3 class="subhead" id="proyectMembersTitle">Miembros</h3>
+              <div class="assign-row">
+                <label>Persona
+                  <select id="memberPersonSelect"></select>
+                </label>
+                <label>Rol en el proyecto
+                  <select id="memberRoleSelect">
+                    <option>Líder</option>
+                    <option>Documentista</option>
+                    <option>Desarrollador</option>
+                    <option>Analista</option>
+                  </select>
+                </label>
+                <button id="btnAssignMember" type="button">Asignar</button>
+              </div>
+              <p id="memberMsg" class="msg"></p>
+              <div id="memberList" class="list"></div>
+            </div>
+          </section>
+
           <!-- Mensaje cuando el perfil activo no tiene acciones en este subsistema. -->
           <p id="noActions" class="hint hidden">Este perfil no tiene acciones disponibles en este subsistema.</p>
         </div>

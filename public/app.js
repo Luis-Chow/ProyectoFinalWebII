@@ -32,6 +32,16 @@ const profileCrudMsg = $('#profileCrudMsg');
 const profileCrudList = $('#profileCrudList');
 const auditMsg = $('#auditMsg');
 const auditList = $('#auditList');
+const formProyect = $('#formProyect');
+const proyectLeaderSelect = $('#proyectLeaderSelect');
+const proyectMsg = $('#proyectMsg');
+const proyectList = $('#proyectList');
+const proyectMembersBlock = $('#proyectMembersBlock');
+const proyectMembersTitle = $('#proyectMembersTitle');
+const memberPersonSelect = $('#memberPersonSelect');
+const memberRoleSelect = $('#memberRoleSelect');
+const memberMsg = $('#memberMsg');
+const memberList = $('#memberList');
 
 // Estado de la sesion en el cliente.
 let currentSession = null;
@@ -40,7 +50,7 @@ let currentSubsystems = [];
 let currentSubsystem = null;
 
 // Nombre amigable del subsistema (sub_system_de es el identificador tecnico).
-const SUBSYSTEM_LABELS = { security: 'Seguridad' };
+const SUBSYSTEM_LABELS = { security: 'Seguridad', proyectos: 'Proyectos' };
 const subsystemLabel = (de) => SUBSYSTEM_LABELS[de] || de;
 
 function showMsg(text, ok = true) {
@@ -71,6 +81,14 @@ function showSubsystemMsg(text, ok = true) {
   subsystemMsg.textContent = text || '';
   subsystemMsg.className = 'msg ' + (ok ? 'ok' : 'error');
 }
+function showProyectMsg(text, ok = true) {
+  proyectMsg.textContent = text || '';
+  proyectMsg.className = 'msg ' + (ok ? 'ok' : 'error');
+}
+function showMemberMsg(text, ok = true) {
+  memberMsg.textContent = text || '';
+  memberMsg.className = 'msg ' + (ok ? 'ok' : 'error');
+}
 
 async function api(path, options = {}) {
   const res = await fetch(path, {
@@ -82,11 +100,12 @@ async function api(path, options = {}) {
   return { ok: res.ok, status: res.status, data };
 }
 
-// Atajo para invocar cualquier metodo de seguridad por el dispatcher /toProcess.
-function toProcess(objectName, methodName, params = []) {
+// Atajo para invocar cualquier metodo por el dispatcher /toProcess. El subsistema es el
+// DUEÑO del objeto (security, proyectos...), no la ventana donde se este navegando.
+function toProcess(objectName, methodName, params = [], subsystem = 'security') {
   return api('/toProcess', {
     method: 'POST',
-    body: JSON.stringify({ subsystem: 'security', objectName, methodName, params })
+    body: JSON.stringify({ subsystem, objectName, methodName, params })
   });
 }
 
@@ -374,6 +393,155 @@ async function loadAuditData() {
   }
 }
 
+// ---- Pestaña "Mantenimiento de proyectos" (CU-06/CU-07, subsistema proyectos) ----
+let currentProyect = null; // proyecto elegido con el boton "Miembros"
+
+// Boton chico de fila (mismo look que en usuarios/perfiles).
+function miniButton(label, onClick, danger = false) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'mini' + (danger ? ' danger' : '');
+  btn.textContent = label;
+  btn.addEventListener('click', onClick);
+  return btn;
+}
+
+async function loadProyectData() {
+  showProyectMsg('');
+  showMemberMsg('');
+  currentProyect = null;
+  proyectMembersBlock.classList.add('hidden');
+
+  // Personas (con su cargo) para elegir lider y miembros.
+  const persons = await toProcess('Proyect', 'listPersons', [], 'proyectos');
+  if (persons.ok) {
+    for (const sel of [proyectLeaderSelect, memberPersonSelect]) {
+      sel.innerHTML = '';
+      for (const p of persons.data.data) {
+        const opt = document.createElement('option');
+        opt.value = p.person_id;
+        opt.textContent = `${p.person_na} ${p.person_ln} · ${p.charge_de}`;
+        sel.appendChild(opt);
+      }
+    }
+  }
+  await refreshProyectList();
+}
+
+async function refreshProyectList() {
+  proyectList.innerHTML = '';
+  const res = await toProcess('Proyect', 'listProyects', [], 'proyectos');
+  if (!res.ok) {
+    showProyectMsg(res.data.msg || 'No tienes permiso para ver los proyectos.', false);
+    return;
+  }
+  const rows = res.data.data || [];
+  if (!rows.length) {
+    const empty = document.createElement('p');
+    empty.className = 'hint';
+    empty.textContent = 'No hay proyectos aún. Crea el primero arriba.';
+    proyectList.appendChild(empty);
+    return;
+  }
+  for (const p of rows) {
+    const item = document.createElement('div');
+    item.className = 'item';
+
+    const left = document.createElement('span');
+    left.textContent = `#${p.id} · ${p.name}`;
+    const sub = document.createElement('span');
+    sub.className = 'item-sub';
+    sub.textContent = `Líder: ${p.leader_na} · ${p.members} miembro(s)`;
+    left.appendChild(sub);
+
+    const actions = document.createElement('div');
+    actions.className = 'row-actions';
+
+    const STATUS_ACTIVO = 1;
+    const STATUS_CULMINADO = 3;
+    const badge = document.createElement('span');
+    badge.className = 'status-badge ' + (p.status_id === STATUS_ACTIVO ? 'on' : 'off');
+    badge.textContent = p.status_de;
+    actions.appendChild(badge);
+
+    actions.appendChild(miniButton('Miembros', () => selectProyect(p)));
+
+    const esActivo = p.status_id === STATUS_ACTIVO;
+    actions.appendChild(miniButton(esActivo ? 'Culminar' : 'Reactivar', async () => {
+      const target = esActivo ? STATUS_CULMINADO : STATUS_ACTIVO;
+      const r = await toProcess('Proyect', 'setProyectStatus', [p.id, target], 'proyectos');
+      showProyectMsg(r.ok ? 'Estado del proyecto actualizado.' : (r.data.msg || 'Error.'), r.ok);
+      if (r.ok) refreshProyectList();
+    }));
+
+    actions.appendChild(miniButton('Eliminar', async () => {
+      if (!confirm(`¿Eliminar el proyecto "${p.name}"? Se quitarán también sus roles y miembros.`)) return;
+      const r = await toProcess('Proyect', 'deleteProyect', [p.id], 'proyectos');
+      showProyectMsg(r.ok ? 'Proyecto eliminado.' : (r.data.msg || 'Error.'), r.ok);
+      if (r.ok) {
+        if (currentProyect && currentProyect.id === p.id) {
+          currentProyect = null;
+          proyectMembersBlock.classList.add('hidden');
+        }
+        refreshProyectList();
+      }
+    }, true));
+
+    item.appendChild(left);
+    item.appendChild(actions);
+    proyectList.appendChild(item);
+  }
+}
+
+function selectProyect(p) {
+  currentProyect = p;
+  proyectMembersTitle.textContent = `Miembros de «${p.name}»`;
+  proyectMembersBlock.classList.remove('hidden');
+  showMemberMsg('');
+  refreshMemberList();
+}
+
+async function refreshMemberList() {
+  memberList.innerHTML = '';
+  if (!currentProyect) return;
+  const res = await toProcess('Proyect', 'listProyectMembers', [currentProyect.id], 'proyectos');
+  if (!res.ok) {
+    showMemberMsg(res.data.msg || 'Error al listar miembros.', false);
+    return;
+  }
+  const rows = res.data.data || [];
+  if (!rows.length) {
+    const empty = document.createElement('p');
+    empty.className = 'hint';
+    empty.textContent = 'Este proyecto aún no tiene miembros.';
+    memberList.appendChild(empty);
+    return;
+  }
+  for (const m of rows) {
+    const item = document.createElement('div');
+    item.className = 'item';
+
+    const left = document.createElement('span');
+    left.textContent = `${m.role_de} · ${m.person_na} ${m.person_ln}`;
+    const sub = document.createElement('span');
+    sub.className = 'item-sub';
+    sub.textContent = `Cargo: ${m.charge_de}`;
+    left.appendChild(sub);
+
+    const actions = document.createElement('div');
+    actions.className = 'row-actions';
+    actions.appendChild(miniButton('Quitar', async () => {
+      const r = await toProcess('Proyect', 'removeMember', [m.id], 'proyectos');
+      showMemberMsg(r.ok ? 'Miembro quitado.' : (r.data.msg || 'Error.'), r.ok);
+      if (r.ok) { refreshMemberList(); refreshProyectList(); }
+    }, true));
+
+    item.appendChild(left);
+    item.appendChild(actions);
+    memberList.appendChild(item);
+  }
+}
+
 // ---- Pestaña "Mantenimiento de usuarios" (CU-02) ----
 function loadUserMgmt() {
   // El formulario de crear cuenta solo se muestra a quien tiene permiso.
@@ -433,12 +601,15 @@ async function refreshUsersList() {
 // Cada pestaña corresponde a una OPCION de menu (option_de = id de la pestaña). Su
 // visibilidad la decide permission_option (session.visibleOptions); las acciones de adentro
 // se siguen validando por metodo en el servidor.
+// "sub" = subsistema dueño de la pestaña: en la ventana de un subsistema solo se
+// muestran SUS opciones (aunque el perfil tenga opciones de otros subsistemas).
 const TABS = [
-  { id: 'userMgmtBox', label: 'Mantenimiento de usuarios',   load: loadUserMgmt },
-  { id: 'profileBox',  label: 'Mantenimiento de perfiles',   load: loadProfileCrud },
-  { id: 'manageBox',   label: 'Asignar perfiles a usuarios', load: loadManageData },
-  { id: 'permBox',     label: 'Asignar permisos',            load: loadPermData },
-  { id: 'auditBox',    label: 'Auditoría',                   load: loadAuditData }
+  { id: 'userMgmtBox',    label: 'Mantenimiento de usuarios',   load: loadUserMgmt,    sub: 'security' },
+  { id: 'profileBox',     label: 'Mantenimiento de perfiles',   load: loadProfileCrud, sub: 'security' },
+  { id: 'manageBox',      label: 'Asignar perfiles a usuarios', load: loadManageData,  sub: 'security' },
+  { id: 'permBox',        label: 'Asignar permisos',            load: loadPermData,    sub: 'security' },
+  { id: 'auditBox',       label: 'Auditoría',                   load: loadAuditData,   sub: 'security' },
+  { id: 'proyectMgmtBox', label: 'Mantenimiento de proyectos',  load: loadProyectData, sub: 'proyectos' }
 ];
 
 let activeTabId = null;
@@ -459,7 +630,7 @@ function activateTab(tab) {
 function buildTabs(session) {
   tabsNav.innerHTML = '';
   const visible = session.visibleOptions || [];
-  const available = TABS.filter((t) => visible.includes(t.id));
+  const available = TABS.filter((t) => t.sub === currentSubsystem && visible.includes(t.id));
   for (const t of available) {
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -584,6 +755,13 @@ profileSwitchSelect.addEventListener('change', async () => {
   if (ok) {
     currentSession = data.objectSession;
     currentSubsystems = data.subsystems || [];
+    // Si el nuevo perfil ya no tiene acceso al subsistema abierto, se vuelve a la
+    // pantalla de seleccion (p. ej. Administrador -> Líder de proyecto).
+    if (!currentSubsystems.some((s) => s.sub_system_de === currentSubsystem)) {
+      currentSubsystem = null;
+      renderSubsystemSelect();
+      return;
+    }
     whoami.textContent =
       `Conectado como ${currentSession.user_na} (${currentSession.profile_de}) · ${subsystemLabel(currentSubsystem)}`;
     buildTabs(currentSession);
@@ -635,6 +813,30 @@ $('#btnRemove').addEventListener('click', async () => {
   const { ok, data } = await toProcess('UserProfile', 'removeUserProfile', params);
   showManageMsg(ok ? 'Perfil quitado.' : (data.msg || 'Error.'), ok);
   if (ok) refreshUserProfiles();
+});
+
+formProyect.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = (new FormData(formProyect)).get('name').trim();
+  const leader_person_id = Number(proyectLeaderSelect.value);
+  const { ok, data } = await toProcess('Proyect', 'insertProyect', { name, leader_person_id }, 'proyectos');
+  if (ok) {
+    formProyect.reset();
+    showProyectMsg('Proyecto creado.', true);
+    refreshProyectList();
+  } else if (data.errors && data.errors.length) {
+    showProyectMsg('• ' + data.errors.join('\n• '), false);
+  } else {
+    showProyectMsg(data.msg || 'Error.', false);
+  }
+});
+
+$('#btnAssignMember').addEventListener('click', async () => {
+  if (!currentProyect) return;
+  const params = [currentProyect.id, Number(memberPersonSelect.value), memberRoleSelect.value];
+  const { ok, data } = await toProcess('Proyect', 'assignMember', params, 'proyectos');
+  showMemberMsg(ok ? 'Miembro asignado.' : (data.msg || 'Error.'), ok);
+  if (ok) { refreshMemberList(); refreshProyectList(); }
 });
 
 permProfileSelect.addEventListener('change', () => { permPage = 0; refreshPermList(); refreshPermOptions(); });

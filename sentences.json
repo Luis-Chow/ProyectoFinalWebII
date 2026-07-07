@@ -24,8 +24,24 @@
     "listVisibleOptions": "SELECT op.option_de FROM permission_option po INNER JOIN option op ON op.option_id = po.option_id WHERE po.profile_id = $1",
     "listAudit": "SELECT a.id, a.date, a.hour, a.action, a.description, u.user_na FROM audit a INNER JOIN \"user\" u ON u.user_id = a.user_id ORDER BY a.id DESC LIMIT $1"
   },
+  "proyectos": {
+    "listProyects": "SELECT p.id, p.name, p.status_id, s.status_de, COALESCE((SELECT string_agg(pe.person_na || ' ' || pe.person_ln, ', ') FROM proyect_role pr INNER JOIN proyect_role_person prp ON prp.proyect_role_id = pr.id INNER JOIN person pe ON pe.person_id = prp.person_id WHERE pr.proyect_id = p.id AND pr.name = 'Líder'), '—') AS leader_na, (SELECT COUNT(*)::int FROM proyect_role pr2 INNER JOIN proyect_role_person prp2 ON prp2.proyect_role_id = pr2.id WHERE pr2.proyect_id = p.id) AS members FROM proyect p INNER JOIN status s ON s.status_id = p.status_id ORDER BY p.id DESC",
+    "listProyectMembers": "SELECT prp.id, pr.name AS role_de, pe.person_id, pe.person_na, pe.person_ln, COALESCE(c.name, '—') AS charge_de FROM proyect_role pr INNER JOIN proyect_role_person prp ON prp.proyect_role_id = pr.id INNER JOIN person pe ON pe.person_id = prp.person_id LEFT JOIN charge c ON c.id = pe.charge_id WHERE pr.proyect_id = $1 ORDER BY pr.name, pe.person_na",
+    "listPersons": "SELECT pe.person_id, pe.person_ci, pe.person_na, pe.person_ln, COALESCE(c.name, '—') AS charge_de FROM person pe LEFT JOIN charge c ON c.id = pe.charge_id ORDER BY pe.person_na, pe.person_ln",
+    "deleteProyect": "DELETE FROM proyect WHERE id = $1",
+    "removeMember": "DELETE FROM proyect_role_person WHERE id = $1",
+
+    "getProyect": "SELECT id, name, status_id FROM proyect WHERE id = $1",
+    "insertProyect": "INSERT INTO proyect (status_id, name) VALUES ($1, $2) RETURNING id",
+    "setProyectStatus": "UPDATE proyect SET status_id = $2 WHERE id = $1",
+    "findProyectRole": "SELECT id FROM proyect_role WHERE proyect_id = $1 AND name = $2",
+    "insertProyectRole": "INSERT INTO proyect_role (proyect_id, name) VALUES ($1, $2) RETURNING id",
+    "insertProyectRolePerson": "INSERT INTO proyect_role_person (proyect_role_id, person_id) VALUES ($1, $2) RETURNING id",
+    "memberExists": "SELECT EXISTS(SELECT 1 FROM proyect_role_person prp INNER JOIN proyect_role pr ON pr.id = prp.proyect_role_id WHERE pr.proyect_id = $1 AND prp.person_id = $2) AS dup",
+    "personExists": "SELECT person_id FROM person WHERE person_id = $1"
+  },
   "model": {
-    "dropAll": "DROP TABLE IF EXISTS audit, permission_method, permission_option, user_profile, method, option, object, sub_system, subsystem, \"user\", users, profile, status CASCADE",
+    "dropAll": "DROP TABLE IF EXISTS proyect_role_person, proyect_role, proyect, person_user, person, charge, projects, project_members, audit, permission_method, permission_option, user_profile, method, option, object, sub_system, subsystem, \"user\", users, profile, status CASCADE",
 
     "createStatus": "CREATE TABLE IF NOT EXISTS status (status_id SERIAL PRIMARY KEY, status_de VARCHAR(50) NOT NULL)",
     "createProfile": "CREATE TABLE IF NOT EXISTS profile (profile_id SERIAL PRIMARY KEY, profile_de VARCHAR(50) NOT NULL)",
@@ -39,6 +55,13 @@
     "createPermissionOption": "CREATE TABLE IF NOT EXISTS permission_option (permission_option_id SERIAL PRIMARY KEY, profile_id INT NOT NULL REFERENCES profile(profile_id) ON DELETE CASCADE, option_id INT NOT NULL REFERENCES option(option_id) ON DELETE CASCADE, UNIQUE (profile_id, option_id))",
     "createAudit": "CREATE TABLE IF NOT EXISTS audit (id SERIAL PRIMARY KEY, user_id INT NOT NULL REFERENCES \"user\"(user_id) ON DELETE CASCADE, date DATE NOT NULL, hour TIME NOT NULL, action VARCHAR(50) NOT NULL, description TEXT)",
 
+    "createCharge": "CREATE TABLE IF NOT EXISTS charge (id SERIAL PRIMARY KEY, name VARCHAR(100) NOT NULL)",
+    "createPerson": "CREATE TABLE IF NOT EXISTS person (person_id SERIAL PRIMARY KEY, person_ci VARCHAR(20) NOT NULL, person_na VARCHAR(50) NOT NULL, person_ln VARCHAR(50) NOT NULL, charge_id INT REFERENCES charge(id))",
+    "createPersonUser": "CREATE TABLE IF NOT EXISTS person_user (id SERIAL PRIMARY KEY, person_id INT NOT NULL REFERENCES person(person_id) ON DELETE CASCADE, user_id INT NOT NULL REFERENCES \"user\"(user_id) ON DELETE CASCADE)",
+    "createProyect": "CREATE TABLE IF NOT EXISTS proyect (id SERIAL PRIMARY KEY, status_id INT NOT NULL REFERENCES status(status_id), name VARCHAR(150) NOT NULL)",
+    "createProyectRole": "CREATE TABLE IF NOT EXISTS proyect_role (id SERIAL PRIMARY KEY, proyect_id INT NOT NULL REFERENCES proyect(id) ON DELETE CASCADE, name VARCHAR(100) NOT NULL)",
+    "createProyectRolePerson": "CREATE TABLE IF NOT EXISTS proyect_role_person (id SERIAL PRIMARY KEY, proyect_role_id INT NOT NULL REFERENCES proyect_role(id) ON DELETE CASCADE, person_id INT NOT NULL REFERENCES person(person_id) ON DELETE CASCADE)",
+
     "loadPermissionMethod": "SELECT pm.profile_id, m.method_de, o.object_de, s.sub_system_de FROM permission_method pm INNER JOIN method m ON m.method_id = pm.method_id INNER JOIN object o ON o.object_id = m.object_id INNER JOIN sub_system s ON s.sub_system_id = o.sub_system_id",
     "loadPermissionOption": "SELECT po.profile_id, op.option_de, s.sub_system_de FROM permission_option po INNER JOIN option op ON op.option_id = po.option_id INNER JOIN sub_system s ON s.sub_system_id = op.sub_system_id",
 
@@ -47,6 +70,7 @@
 
     "seedStatusActivo": "INSERT INTO status (status_id, status_de) VALUES (1, 'Activo') ON CONFLICT (status_id) DO UPDATE SET status_de = EXCLUDED.status_de",
     "seedStatusInactivo": "INSERT INTO status (status_id, status_de) VALUES (2, 'Inactivo') ON CONFLICT (status_id) DO UPDATE SET status_de = EXCLUDED.status_de",
+    "seedStatusCulminado": "INSERT INTO status (status_id, status_de) VALUES (3, 'Culminado') ON CONFLICT (status_id) DO UPDATE SET status_de = EXCLUDED.status_de",
 
     "seedProfileAdmin": "INSERT INTO profile (profile_id, profile_de) VALUES (1, 'Administrador') ON CONFLICT (profile_id) DO UPDATE SET profile_de = EXCLUDED.profile_de",
     "seedProfileEmpleado": "INSERT INTO profile (profile_id, profile_de) VALUES (2, 'Empleado') ON CONFLICT (profile_id) DO UPDATE SET profile_de = EXCLUDED.profile_de",
@@ -54,12 +78,14 @@
     "syncProfileSeq": "SELECT setval(pg_get_serial_sequence('profile', 'profile_id'), (SELECT COALESCE(MAX(profile_id), 1) FROM profile))",
 
     "seedSubSystemSecurity": "INSERT INTO sub_system (sub_system_id, sub_system_de) VALUES (1, 'security') ON CONFLICT (sub_system_id) DO NOTHING",
+    "seedSubSystemProyectos": "INSERT INTO sub_system (sub_system_id, sub_system_de) VALUES (2, 'proyectos') ON CONFLICT (sub_system_id) DO NOTHING",
 
     "seedObjectUser": "INSERT INTO object (object_id, object_de, sub_system_id) VALUES (1, 'User', 1) ON CONFLICT (object_id) DO NOTHING",
     "seedObjectUserProfile": "INSERT INTO object (object_id, object_de, sub_system_id) VALUES (2, 'UserProfile', 1) ON CONFLICT (object_id) DO NOTHING",
     "seedObjectPermission": "INSERT INTO object (object_id, object_de, sub_system_id) VALUES (3, 'Permission', 1) ON CONFLICT (object_id) DO NOTHING",
     "seedObjectProfile": "INSERT INTO object (object_id, object_de, sub_system_id) VALUES (4, 'Profile', 1) ON CONFLICT (object_id) DO NOTHING",
     "seedObjectAudit": "INSERT INTO object (object_id, object_de, sub_system_id) VALUES (5, 'Audit', 1) ON CONFLICT (object_id) DO NOTHING",
+    "seedObjectProyect": "INSERT INTO object (object_id, object_de, sub_system_id) VALUES (6, 'Proyect', 2) ON CONFLICT (object_id) DO NOTHING",
 
     "seedMethodListUsers": "INSERT INTO method (method_id, method_de, object_id) VALUES (1, 'listUsers', 1) ON CONFLICT (method_id) DO NOTHING",
     "seedMethodInsertUser": "INSERT INTO method (method_id, method_de, object_id) VALUES (2, 'insertUser', 1) ON CONFLICT (method_id) DO NOTHING",
@@ -78,6 +104,14 @@
     "seedMethodListPermissionOptions": "INSERT INTO method (method_id, method_de, object_id) VALUES (14, 'listPermissionOptions', 3) ON CONFLICT (method_id) DO NOTHING",
     "seedMethodGrantOption": "INSERT INTO method (method_id, method_de, object_id) VALUES (15, 'grantOption', 3) ON CONFLICT (method_id) DO NOTHING",
     "seedMethodRevokeOption": "INSERT INTO method (method_id, method_de, object_id) VALUES (16, 'revokeOption', 3) ON CONFLICT (method_id) DO NOTHING",
+    "seedMethodListProyects": "INSERT INTO method (method_id, method_de, object_id) VALUES (18, 'listProyects', 6) ON CONFLICT (method_id) DO NOTHING",
+    "seedMethodInsertProyect": "INSERT INTO method (method_id, method_de, object_id) VALUES (19, 'insertProyect', 6) ON CONFLICT (method_id) DO NOTHING",
+    "seedMethodSetProyectStatus": "INSERT INTO method (method_id, method_de, object_id) VALUES (20, 'setProyectStatus', 6) ON CONFLICT (method_id) DO NOTHING",
+    "seedMethodDeleteProyect": "INSERT INTO method (method_id, method_de, object_id) VALUES (21, 'deleteProyect', 6) ON CONFLICT (method_id) DO NOTHING",
+    "seedMethodListProyectMembers": "INSERT INTO method (method_id, method_de, object_id) VALUES (22, 'listProyectMembers', 6) ON CONFLICT (method_id) DO NOTHING",
+    "seedMethodAssignMember": "INSERT INTO method (method_id, method_de, object_id) VALUES (23, 'assignMember', 6) ON CONFLICT (method_id) DO NOTHING",
+    "seedMethodRemoveMember": "INSERT INTO method (method_id, method_de, object_id) VALUES (24, 'removeMember', 6) ON CONFLICT (method_id) DO NOTHING",
+    "seedMethodListPersons": "INSERT INTO method (method_id, method_de, object_id) VALUES (25, 'listPersons', 6) ON CONFLICT (method_id) DO NOTHING",
 
     "seedPermAdminListUsers": "INSERT INTO permission_method (profile_id, method_id) VALUES (1, 1) ON CONFLICT (profile_id, method_id) DO NOTHING",
     "seedPermAdminInsertUser": "INSERT INTO permission_method (profile_id, method_id) VALUES (1, 2) ON CONFLICT (profile_id, method_id) DO NOTHING",
@@ -101,17 +135,41 @@
     "seedOptionAsignarPerfiles": "INSERT INTO option (option_id, option_de, sub_system_id) VALUES (3, 'manageBox', 1) ON CONFLICT (option_id) DO NOTHING",
     "seedOptionPermisos": "INSERT INTO option (option_id, option_de, sub_system_id) VALUES (4, 'permBox', 1) ON CONFLICT (option_id) DO NOTHING",
     "seedOptionAuditoria": "INSERT INTO option (option_id, option_de, sub_system_id) VALUES (5, 'auditBox', 1) ON CONFLICT (option_id) DO NOTHING",
+    "seedOptionProyectos": "INSERT INTO option (option_id, option_de, sub_system_id) VALUES (6, 'proyectMgmtBox', 2) ON CONFLICT (option_id) DO NOTHING",
     "seedPermOptAdminUsuarios": "INSERT INTO permission_option (profile_id, option_id) VALUES (1, 1) ON CONFLICT (profile_id, option_id) DO NOTHING",
     "seedPermOptAdminPerfiles": "INSERT INTO permission_option (profile_id, option_id) VALUES (1, 2) ON CONFLICT (profile_id, option_id) DO NOTHING",
     "seedPermOptAdminAsignarPerfiles": "INSERT INTO permission_option (profile_id, option_id) VALUES (1, 3) ON CONFLICT (profile_id, option_id) DO NOTHING",
     "seedPermOptAdminPermisos": "INSERT INTO permission_option (profile_id, option_id) VALUES (1, 4) ON CONFLICT (profile_id, option_id) DO NOTHING",
     "seedPermOptAdminAuditoria": "INSERT INTO permission_option (profile_id, option_id) VALUES (1, 5) ON CONFLICT (profile_id, option_id) DO NOTHING",
 
+    "seedPermLiderListProyects": "INSERT INTO permission_method (profile_id, method_id) VALUES (3, 18) ON CONFLICT (profile_id, method_id) DO NOTHING",
+    "seedPermLiderInsertProyect": "INSERT INTO permission_method (profile_id, method_id) VALUES (3, 19) ON CONFLICT (profile_id, method_id) DO NOTHING",
+    "seedPermLiderSetProyectStatus": "INSERT INTO permission_method (profile_id, method_id) VALUES (3, 20) ON CONFLICT (profile_id, method_id) DO NOTHING",
+    "seedPermLiderDeleteProyect": "INSERT INTO permission_method (profile_id, method_id) VALUES (3, 21) ON CONFLICT (profile_id, method_id) DO NOTHING",
+    "seedPermLiderListProyectMembers": "INSERT INTO permission_method (profile_id, method_id) VALUES (3, 22) ON CONFLICT (profile_id, method_id) DO NOTHING",
+    "seedPermLiderAssignMember": "INSERT INTO permission_method (profile_id, method_id) VALUES (3, 23) ON CONFLICT (profile_id, method_id) DO NOTHING",
+    "seedPermLiderRemoveMember": "INSERT INTO permission_method (profile_id, method_id) VALUES (3, 24) ON CONFLICT (profile_id, method_id) DO NOTHING",
+    "seedPermLiderListPersons": "INSERT INTO permission_method (profile_id, method_id) VALUES (3, 25) ON CONFLICT (profile_id, method_id) DO NOTHING",
+    "seedPermOptLiderProyectos": "INSERT INTO permission_option (profile_id, option_id) VALUES (3, 6) ON CONFLICT (profile_id, option_id) DO NOTHING",
+
     "seedUserAdmin": "INSERT INTO \"user\" (user_na, user_pw, status_id) VALUES ('admin1', 'Admin123', 1) ON CONFLICT (user_na) DO NOTHING",
     "seedUserEmpleado": "INSERT INTO \"user\" (user_na, user_pw, status_id) VALUES ('empleado1', 'Empleado123', 1) ON CONFLICT (user_na) DO NOTHING",
 
     "seedUserProfileAdmin": "INSERT INTO user_profile (user_id, profile_id) SELECT u.user_id, 1 FROM \"user\" u WHERE u.user_na = 'admin1' ON CONFLICT (user_id, profile_id) DO NOTHING",
     "seedUserProfileAdminLider": "INSERT INTO user_profile (user_id, profile_id) SELECT u.user_id, 3 FROM \"user\" u WHERE u.user_na = 'admin1' ON CONFLICT (user_id, profile_id) DO NOTHING",
-    "seedUserProfileEmpleado": "INSERT INTO user_profile (user_id, profile_id) SELECT u.user_id, 2 FROM \"user\" u WHERE u.user_na = 'empleado1' ON CONFLICT (user_id, profile_id) DO NOTHING"
+    "seedUserProfileEmpleado": "INSERT INTO user_profile (user_id, profile_id) SELECT u.user_id, 2 FROM \"user\" u WHERE u.user_na = 'empleado1' ON CONFLICT (user_id, profile_id) DO NOTHING",
+
+    "seedChargeLider": "INSERT INTO charge (id, name) VALUES (1, 'Líder (senior)') ON CONFLICT (id) DO NOTHING",
+    "seedChargeDocumentista": "INSERT INTO charge (id, name) VALUES (2, 'Documentista') ON CONFLICT (id) DO NOTHING",
+    "seedChargeDesarrollador": "INSERT INTO charge (id, name) VALUES (3, 'Desarrollador') ON CONFLICT (id) DO NOTHING",
+    "seedChargeAnalista": "INSERT INTO charge (id, name) VALUES (4, 'Analista') ON CONFLICT (id) DO NOTHING",
+
+    "seedPersonLuis": "INSERT INTO person (person_id, person_ci, person_na, person_ln, charge_id) VALUES (1, '00000001', 'Luis', 'Chow', 1) ON CONFLICT (person_id) DO NOTHING",
+    "seedPersonRonald": "INSERT INTO person (person_id, person_ci, person_na, person_ln, charge_id) VALUES (2, '00000002', 'Ronald', 'López', 3) ON CONFLICT (person_id) DO NOTHING",
+    "seedPersonJuan": "INSERT INTO person (person_id, person_ci, person_na, person_ln, charge_id) VALUES (3, '00000003', 'Juan', 'Garal', 4) ON CONFLICT (person_id) DO NOTHING",
+    "seedPersonMaria": "INSERT INTO person (person_id, person_ci, person_na, person_ln, charge_id) VALUES (4, '00000004', 'María', 'Torres', 2) ON CONFLICT (person_id) DO NOTHING",
+
+    "seedPersonUserAdmin": "INSERT INTO person_user (person_id, user_id) SELECT 1, u.user_id FROM \"user\" u WHERE u.user_na = 'admin1' AND NOT EXISTS (SELECT 1 FROM person_user pu WHERE pu.person_id = 1)",
+    "seedPersonUserEmpleado": "INSERT INTO person_user (person_id, user_id) SELECT 2, u.user_id FROM \"user\" u WHERE u.user_na = 'empleado1' AND NOT EXISTS (SELECT 1 FROM person_user pu WHERE pu.person_id = 2)"
   }
 }

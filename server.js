@@ -59,7 +59,12 @@ const AUDIT_ACTIONS = {
     deleteProfile: 'delete',
     setUserStatus: 'update',
     grantOption: 'insert',
-    revokeOption: 'delete'
+    revokeOption: 'delete',
+    insertProyect: 'insert',
+    setProyectStatus: 'update',
+    deleteProyect: 'delete',
+    assignMember: 'insert',
+    removeMember: 'delete'
 };
 
 // Arma una descripcion legible de los params SIN exponer secretos (la contraseña nunca
@@ -262,7 +267,13 @@ app.post('/toProcess', async (req, res) => {
             ['model', 'createUserProfile'],
             ['model', 'createPermissionMethod'],
             ['model', 'createPermissionOption'],
-            ['model', 'createAudit']
+            ['model', 'createAudit'],
+            ['model', 'createCharge'],
+            ['model', 'createPerson'],
+            ['model', 'createPersonUser'],
+            ['model', 'createProyect'],
+            ['model', 'createProyectRole'],
+            ['model', 'createProyectRolePerson']
         ];
         for (const [schema, id] of ddl) {
             await global.dbc.exeQuery(global.dbc.getSentence(schema, id));
@@ -272,16 +283,19 @@ app.post('/toProcess', async (req, res) => {
         const seeds = [
             ['model', 'seedStatusActivo'],
             ['model', 'seedStatusInactivo'],
+            ['model', 'seedStatusCulminado'],
             ['model', 'seedProfileAdmin'],
             ['model', 'seedProfileEmpleado'],
             ['model', 'seedProfileLider'],
             ['model', 'syncProfileSeq'],
             ['model', 'seedSubSystemSecurity'],
+            ['model', 'seedSubSystemProyectos'],
             ['model', 'seedObjectUser'],
             ['model', 'seedObjectUserProfile'],
             ['model', 'seedObjectPermission'],
             ['model', 'seedObjectProfile'],
             ['model', 'seedObjectAudit'],
+            ['model', 'seedObjectProyect'],
             ['model', 'seedMethodListUsers'],
             ['model', 'seedMethodInsertUser'],
             ['model', 'seedMethodSetUserStatus'],
@@ -299,11 +313,20 @@ app.post('/toProcess', async (req, res) => {
             ['model', 'seedMethodListPermissionOptions'],
             ['model', 'seedMethodGrantOption'],
             ['model', 'seedMethodRevokeOption'],
+            ['model', 'seedMethodListProyects'],
+            ['model', 'seedMethodInsertProyect'],
+            ['model', 'seedMethodSetProyectStatus'],
+            ['model', 'seedMethodDeleteProyect'],
+            ['model', 'seedMethodListProyectMembers'],
+            ['model', 'seedMethodAssignMember'],
+            ['model', 'seedMethodRemoveMember'],
+            ['model', 'seedMethodListPersons'],
             ['model', 'seedOptionUsuarios'],
             ['model', 'seedOptionPerfiles'],
             ['model', 'seedOptionAsignarPerfiles'],
             ['model', 'seedOptionPermisos'],
             ['model', 'seedOptionAuditoria'],
+            ['model', 'seedOptionProyectos'],
             ['model', 'seedPermAdminListUsers'],
             ['model', 'seedPermAdminInsertUser'],
             ['model', 'seedPermAdminSetUserStatus'],
@@ -326,11 +349,30 @@ app.post('/toProcess', async (req, res) => {
             ['model', 'seedPermOptAdminAsignarPerfiles'],
             ['model', 'seedPermOptAdminPermisos'],
             ['model', 'seedPermOptAdminAuditoria'],
+            ['model', 'seedPermLiderListProyects'],
+            ['model', 'seedPermLiderInsertProyect'],
+            ['model', 'seedPermLiderSetProyectStatus'],
+            ['model', 'seedPermLiderDeleteProyect'],
+            ['model', 'seedPermLiderListProyectMembers'],
+            ['model', 'seedPermLiderAssignMember'],
+            ['model', 'seedPermLiderRemoveMember'],
+            ['model', 'seedPermLiderListPersons'],
+            ['model', 'seedPermOptLiderProyectos'],
             ['model', 'seedUserAdmin'],
             ['model', 'seedUserEmpleado'],
             ['model', 'seedUserProfileAdmin'],
             ['model', 'seedUserProfileAdminLider'],
-            ['model', 'seedUserProfileEmpleado']
+            ['model', 'seedUserProfileEmpleado'],
+            ['model', 'seedChargeLider'],
+            ['model', 'seedChargeDocumentista'],
+            ['model', 'seedChargeDesarrollador'],
+            ['model', 'seedChargeAnalista'],
+            ['model', 'seedPersonLuis'],
+            ['model', 'seedPersonRonald'],
+            ['model', 'seedPersonJuan'],
+            ['model', 'seedPersonMaria'],
+            ['model', 'seedPersonUserAdmin'],
+            ['model', 'seedPersonUserEmpleado']
         ];
         for (const [schema, id] of seeds) {
             await global.dbc.exeQuery(global.dbc.getSentence(schema, id));
