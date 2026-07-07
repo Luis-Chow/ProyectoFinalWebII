@@ -91,6 +91,18 @@ h1 {
   background: #4e4f50;
 }
 
+/* Cerrar sesión siempre en rojo (acción de salida), en ambas pantallas. */
+#btnLogout,
+#btnCancelSubsystem {
+  background: #dc2626;
+  color: #fff;
+}
+
+#btnLogout:hover,
+#btnCancelSubsystem:hover {
+  background: #b91c1c;
+}
+
 .form {
   display: flex;
   flex-direction: column;
@@ -441,6 +453,10 @@ button[type="submit"]:hover,
   background: #1e1f20;
   border: 1px solid #3e4042;
   border-radius: 10px;
+  /* Altura fija: todas las pestañas miden lo mismo; si el contenido excede
+     (p. ej. Asignar permisos), hace scroll interno en vez de alargar la ventana. */
+  height: min(540px, 70vh);
+  overflow-y: auto;
 }
 
 .tab-content h2 {
