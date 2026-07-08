@@ -720,7 +720,7 @@ $('#btnLogout').addEventListener('click', async () => {
 // Cambiar de perfil activo (selector abajo): recalcula permisos y re-pinta las pestañas.
 profileSwitchSelect.addEventListener('change', async () => {
   const profile_id = Number(profileSwitchSelect.value);
-  const { ok, data } = await api('/selectProfile', {
+  const { ok, status, data } = await api('/selectProfile', {
     method: 'POST',
     body: JSON.stringify({ profile_id })
   });
@@ -736,7 +736,14 @@ profileSwitchSelect.addEventListener('change', async () => {
     }
     updateWhoami();
     buildTabs(currentSession);
+  } else if (status === 401) {
+    // La sesion ya no existe en el servidor (cada npm start borra las sesiones en
+    // memoria): quedarse en el workspace seria engañoso -> volver al login.
+    renderLoggedOut();
+    showMsg('Tu sesión expiró. Inicia sesión de nuevo.', false);
   } else {
+    // Error sin cambio de pantalla: reponer el selector al perfil realmente activo.
+    profileSwitchSelect.value = String(currentSession.profile_id);
     showMsg(data.msg || 'No se pudo cambiar de perfil.', false);
   }
 });
