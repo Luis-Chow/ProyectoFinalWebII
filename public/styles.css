@@ -205,11 +205,6 @@ button[type="submit"]:hover,
   display: none;
 }
 
-/* ---- CU-04 Gestionar permisos ---- */
-#permBox .item {
-  align-items: center;
-}
-
 /* ---- Mantenimiento de perfiles: acciones por fila ---- */
 #profileCrudList .item {
   align-items: center;
@@ -323,66 +318,6 @@ button[type="submit"]:hover,
   border-color: #2d88ff;
 }
 
-.group-head {
-  font-size: .72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .04em;
-  color: #8a8d91;
-  margin: 12px 0 2px;
-  padding-left: 2px;
-}
-
-.group-head:first-child {
-  margin-top: 0;
-}
-
-.pager {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 12px;
-}
-
-.pager:empty {
-  display: none;
-}
-
-.pager-info {
-  font-size: .8rem;
-  color: #b0b3b8;
-  white-space: nowrap;
-}
-
-.perm-on,
-.perm-off {
-  border: none;
-  border-radius: 6px;
-  padding: 5px 12px;
-  font-size: .8rem;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.perm-on {
-  background: #166534;
-  color: #fff;
-}
-
-.perm-on:hover {
-  background: #15803d;
-}
-
-.perm-off {
-  background: #3a3b3c;
-  color: #b0b3b8;
-}
-
-.perm-off:hover {
-  background: #4e4f50;
-}
-
 /* ---- Mantenimiento de proyectos ---- */
 #createProyectBlock {
   padding-bottom: 14px;
@@ -426,6 +361,76 @@ button[type="submit"]:hover,
 
 .assign-row button:hover {
   background: #2570d6;
+}
+
+/* ---- Cascada de filtros (Asignar permisos, Auditoría) ---- */
+.cascade {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 8px 0 10px;
+}
+
+.cascade label {
+  flex: 1 1 160px;
+}
+
+.cascade-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.cascade-actions button {
+  padding: 9px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: .9rem;
+  cursor: pointer;
+  color: #fff;
+  background: #2d88ff;
+}
+
+.cascade-actions button:hover {
+  filter: brightness(1.08);
+}
+
+.cascade-actions button:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+  filter: none;
+}
+
+.cascade-actions .secondary {
+  background: #3a3b3c;
+  color: #e4e6eb;
+}
+
+/* Asignar = verde, Desasignar = gris (dentro de la cascada de permisos). */
+.cascade-actions .perm-on {
+  background: #166534;
+}
+
+.cascade-actions .perm-off {
+  background: #3a3b3c;
+  color: #e4e6eb;
+}
+
+/* Etiqueta del estado actual del método/opción seleccionado. */
+.state-tag {
+  flex: 1;
+  font-size: .85rem;
+  font-weight: 600;
+}
+
+.state-tag.on {
+  color: #4ade80;
+}
+
+.state-tag.off {
+  color: #8a8d91;
 }
 
 /* ---- Ventana con pestañas verticales ---- */

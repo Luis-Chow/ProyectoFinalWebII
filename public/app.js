@@ -23,15 +23,20 @@ const manageMsg = $('#manageMsg');
 const userProfilesList = $('#userProfilesList');
 const permProfileSelect = $('#permProfileSelect');
 const permMsg = $('#permMsg');
-const permList = $('#permList');
-const permOptionList = $('#permOptionList');
-const permSearch = $('#permSearch');
-const permPager = $('#permPager');
+const permSubsystemSelect = $('#permSubsystemSelect');
+const permObjectSelect = $('#permObjectSelect');
+const permMethodSelect = $('#permMethodSelect');
+const permMethodState = $('#permMethodState');
+const permOptSubsystemSelect = $('#permOptSubsystemSelect');
+const permOptionSelect = $('#permOptionSelect');
+const permOptionState = $('#permOptionState');
 const formProfile = $('#formProfile');
 const profileCrudMsg = $('#profileCrudMsg');
 const profileCrudList = $('#profileCrudList');
 const auditMsg = $('#auditMsg');
 const auditList = $('#auditList');
+const auditFrom = $('#auditFrom');
+const auditTo = $('#auditTo');
 const formProyect = $('#formProyect');
 const proyectLeaderSelect = $('#proyectLeaderSelect');
 const proyectMsg = $('#proyectMsg');
@@ -42,6 +47,17 @@ const memberPersonSelect = $('#memberPersonSelect');
 const memberRoleSelect = $('#memberRoleSelect');
 const memberMsg = $('#memberMsg');
 const memberList = $('#memberList');
+const userSearch = $('#userSearch');
+const registerPersonSelect = $('#registerPersonSelect');
+const formPerson = $('#formPerson');
+const personIdField = $('#personIdField');
+const personChargeSelect = $('#personChargeSelect');
+const personFormTitle = $('#personFormTitle');
+const btnSavePerson = $('#btnSavePerson');
+const btnCancelPerson = $('#btnCancelPerson');
+const personMsg = $('#personMsg');
+const personSearch = $('#personSearch');
+const personList = $('#personList');
 
 // Estado de la sesion en el cliente.
 let currentSession = null;
@@ -69,6 +85,25 @@ const showSubsystemMsg = msgIn(subsystemMsg);
 const showProfileCrudMsg = msgIn(profileCrudMsg);
 const showProyectMsg = msgIn(proyectMsg);
 const showMemberMsg = msgIn(memberMsg);
+const showPersonMsg = msgIn(personMsg);
+
+// Rellena un <select> genérico a partir de filas: value = fila[valueKey], texto = labelFn(fila).
+// Con `placeholder` antepone una opción vacía (para "elige…" o "sin persona").
+function fillSelect(select, rows, valueKey, labelFn, placeholder) {
+  select.innerHTML = '';
+  if (placeholder != null) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = placeholder;
+    select.appendChild(opt);
+  }
+  for (const r of rows) {
+    const opt = document.createElement('option');
+    opt.value = r[valueKey];
+    opt.textContent = labelFn(r);
+    select.appendChild(opt);
+  }
+}
 
 async function api(path, options = {}) {
   const res = await fetch(path, {
@@ -110,9 +145,9 @@ function miniButton(label, onClick, danger = false) {
   return btn;
 }
 
-// ---- Pestaña "Perfiles de usuarios" ----
+// ---- Pestaña "Asignar perfiles a usuarios" (CU-03) ----
 async function loadManageData() {
-  const usersRes = await toProcess('User', 'listUsers', []);
+  const usersRes = await toProcess('User', 'listUsers', ['']);
   if (usersRes.ok) {
     userSelect.innerHTML = '';
     for (const u of usersRes.data.data) {
@@ -147,14 +182,10 @@ async function refreshUserProfiles() {
   }
 }
 
-// ---- Pestaña "Gestionar permisos" (CU-04) ----
-async function loadPermData() {
-  showPermMsg('');
-  const profRes = await toProcess('UserProfile', 'listProfiles', []);
-  if (profRes.ok) fillProfileOptions(permProfileSelect, profRes.data.data);
-  await refreshPermList();
-  await refreshPermOptions();
-}
+// ---- Pestaña "Asignar permisos" (CU-04): cascada Subsistema → Clase → Método ----
+// Se filtra por niveles en vez de listar TODOS los permisos de golpe (evita el "descontrol").
+let permMethods = [];   // métodos de la clase elegida, con su estado granted
+let permOptions = [];   // opciones (menús) del subsistema elegido, con su estado granted
 
 // Etiqueta legible de una opcion de menu (option_de = id de la pestaña).
 function optionLabel(option_de) {
@@ -162,135 +193,101 @@ function optionLabel(option_de) {
   return tab ? tab.label : option_de;
 }
 
-// Lista las opciones (menus) con un toggle de concedido por perfil. Si el cambio afecta
-// MI propio perfil activo, refresco la sesion y las pestañas en vivo.
-let permOptionsData = [];
+async function loadPermData() {
+  showPermMsg('');
+  const profRes = await toProcess('UserProfile', 'listProfiles', []);
+  if (profRes.ok) fillProfileOptions(permProfileSelect, profRes.data.data);
 
-async function refreshPermOptions() {
+  const subsRes = await toProcess('Permission', 'listSubsystems', []);
+  const subs = subsRes.ok ? subsRes.data.data : [];
+  const subLabel = (s) => subsystemLabel(s.sub_system_de);
+  fillSelect(permSubsystemSelect, subs, 'sub_system_id', subLabel);
+  fillSelect(permOptSubsystemSelect, subs, 'sub_system_id', subLabel);
+
+  await loadPermObjects();
+  await loadPermOptions();
+}
+
+// Métodos — al elegir subsistema se cargan sus clases (objetos); luego los métodos de la clase.
+async function loadPermObjects() {
+  const sub_id = Number(permSubsystemSelect.value);
+  const res = await toProcess('Permission', 'listObjects', [sub_id]);
+  fillSelect(permObjectSelect, res.ok ? res.data.data : [], 'object_id', (o) => o.object_de);
+  await loadPermMethods();
+}
+
+async function loadPermMethods() {
+  const object_id = Number(permObjectSelect.value);
   const profile_id = Number(permProfileSelect.value);
-  permOptionsData = [];
-  if (profile_id) {
-    const res = await toProcess('Permission', 'listPermissionOptions', [profile_id]);
-    if (res.ok) permOptionsData = res.data.data;
+  const keep = permMethodSelect.value;   // preserva la selección tras recargar
+  permMethods = [];
+  if (object_id && profile_id) {
+    const res = await toProcess('Permission', 'listMethods', [object_id, profile_id]);
+    if (res.ok) permMethods = res.data.data;
     else showPermMsg(res.data.msg || 'Error.', false);
   }
-  renderPermOptions();
+  fillSelect(permMethodSelect, permMethods, 'method_id', (m) => `${m.granted ? '✓' : '○'} ${m.method_de}`);
+  if (keep) permMethodSelect.value = keep;
+  renderMethodState();
 }
 
-function renderPermOptions() {
-  const filter = (permSearch.value || '').trim().toLowerCase();
+// Muestra el estado del método elegido y habilita solo el botón que aplica.
+function renderMethodState() {
+  const m = permMethods.find((x) => x.method_id === Number(permMethodSelect.value));
+  const granted = !!(m && m.granted);
+  permMethodState.textContent = m ? (granted ? 'Estado: asignado' : 'Estado: sin asignar') : '';
+  permMethodState.className = 'state-tag ' + (granted ? 'on' : 'off');
+  $('#btnGrantMethod').disabled = !m || granted;
+  $('#btnRevokeMethod').disabled = !m || !granted;
+}
+
+async function applyMethodPerm(grant) {
   const profile_id = Number(permProfileSelect.value);
-  permOptionList.innerHTML = '';
-  for (const o of permOptionsData) {
-    const label = optionLabel(o.option_de);
-    if (filter && !label.toLowerCase().includes(filter) && !o.option_de.toLowerCase().includes(filter)) continue;
-    const item = document.createElement('div');
-    item.className = 'item';
-    const lbl = document.createElement('span');
-    lbl.textContent = label;
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = o.granted ? 'perm-on' : 'perm-off';
-    btn.textContent = o.granted ? 'Visible' : 'Oculto';
-    btn.addEventListener('click', async () => {
-      const methodName = o.granted ? 'revokeOption' : 'grantOption';
-      const r = await toProcess('Permission', methodName, [profile_id, o.option_id]);
-      if (!r.ok) { showPermMsg(r.data.msg || 'Error.', false); return; }
-      showPermMsg(o.granted ? 'Menú ocultado.' : 'Menú habilitado.', true);
-      await refreshPermOptions();
-      // Si toqué mis propios menús, refresco sesión + pestañas sin recargar la página.
-      if (profile_id === currentSession.profile_id) {
-        const me = await api('/me');
-        if (me.ok && me.data.objectSession) {
-          currentSession = me.data.objectSession;
-          buildTabs(currentSession);
-        }
-      }
-    });
-    item.appendChild(lbl);
-    item.appendChild(btn);
-    permOptionList.appendChild(item);
-  }
+  const method_id = Number(permMethodSelect.value);
+  if (!profile_id || !method_id) return;
+  const r = await toProcess('Permission', grant ? 'grantMethod' : 'revokeMethod', [profile_id, method_id]);
+  if (r.ok) { showPermMsg(grant ? 'Método asignado.' : 'Método desasignado.', true); await loadPermMethods(); }
+  else showPermMsg(r.data.msg || 'Error.', false);
 }
 
-const PERM_PAGE_SIZE = 10;
-let permPage = 0;     // pagina actual (0-based)
-let permTotal = 0;    // total de metodos que coinciden con la busqueda
-
-// Trae UNA pagina de metodos del servidor (busqueda + LIMIT/OFFSET) y la pinta agrupada.
-// El navegador nunca tiene mas de PERM_PAGE_SIZE filas, haya 16 o 100.000 permisos.
-async function refreshPermList() {
+// Opciones (menús) — al elegir subsistema se cargan sus opciones con estado granted.
+async function loadPermOptions() {
+  const sub_id = Number(permOptSubsystemSelect.value);
   const profile_id = Number(permProfileSelect.value);
-  permList.innerHTML = '';
-  permTotal = 0;
-  if (!profile_id) { renderPermPager(); return; }
-  const search = (permSearch.value || '').trim();
-  const offset = permPage * PERM_PAGE_SIZE;
-  const res = await toProcess('Permission', 'listPermissionMethods', [profile_id, search, PERM_PAGE_SIZE, offset]);
-  if (!res.ok) { showPermMsg(res.data.msg || 'Error.', false); renderPermPager(); return; }
-  const rows = res.data.data;
-  // Si quedamos en una pagina vacia por encima del total, volvemos a la primera.
-  if (!rows.length && permPage > 0) { permPage = 0; return refreshPermList(); }
-  permTotal = rows.length ? Number(rows[0].total) : 0;
-  let lastObject = null;
-  for (const m of rows) {
-    if (m.object_de !== lastObject) {
-      lastObject = m.object_de;
-      const head = document.createElement('div');
-      head.className = 'group-head';
-      head.textContent = `${m.sub_system_de} · ${m.object_de}`;
-      permList.appendChild(head);
-    }
-    const item = document.createElement('div');
-    item.className = 'item';
-    const label = document.createElement('span');
-    label.textContent = m.method_de;
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = m.granted ? 'perm-on' : 'perm-off';
-    btn.textContent = m.granted ? 'Concedido' : 'Sin acceso';
-    btn.addEventListener('click', async () => {
-      const methodName = m.granted ? 'revokeMethod' : 'grantMethod';
-      const r = await toProcess('Permission', methodName, [profile_id, m.method_id]);
-      if (r.ok) { showPermMsg(m.granted ? 'Permiso quitado.' : 'Permiso concedido.', true); refreshPermList(); }
-      else showPermMsg(r.data.msg || 'Error.', false);
-    });
-    item.appendChild(label);
-    item.appendChild(btn);
-    permList.appendChild(item);
+  const keep = permOptionSelect.value;
+  permOptions = [];
+  if (sub_id && profile_id) {
+    const res = await toProcess('Permission', 'listOptions', [sub_id, profile_id]);
+    if (res.ok) permOptions = res.data.data;
+    else showPermMsg(res.data.msg || 'Error.', false);
   }
-  if (!rows.length) {
-    const empty = document.createElement('p');
-    empty.className = 'hint';
-    empty.textContent = search ? 'Sin métodos que coincidan.' : 'Sin métodos.';
-    permList.appendChild(empty);
-  }
-  renderPermPager();
+  fillSelect(permOptionSelect, permOptions, 'option_id', (o) => `${o.granted ? '✓' : '○'} ${optionLabel(o.option_de)}`);
+  if (keep) permOptionSelect.value = keep;
+  renderOptionState();
 }
 
-// Controles de paginacion. Solo aparecen si hay mas de una pagina.
-function renderPermPager() {
-  permPager.innerHTML = '';
-  const pages = Math.max(1, Math.ceil(permTotal / PERM_PAGE_SIZE));
-  if (permTotal <= PERM_PAGE_SIZE) return;
-  const prev = document.createElement('button');
-  prev.type = 'button';
-  prev.className = 'mini';
-  prev.textContent = '‹ Anterior';
-  prev.disabled = permPage <= 0;
-  prev.addEventListener('click', () => { permPage--; refreshPermList(); });
-  const info = document.createElement('span');
-  info.className = 'pager-info';
-  info.textContent = `Página ${permPage + 1} de ${pages} · ${permTotal} método(s)`;
-  const next = document.createElement('button');
-  next.type = 'button';
-  next.className = 'mini';
-  next.textContent = 'Siguiente ›';
-  next.disabled = permPage >= pages - 1;
-  next.addEventListener('click', () => { permPage++; refreshPermList(); });
-  permPager.appendChild(prev);
-  permPager.appendChild(info);
-  permPager.appendChild(next);
+function renderOptionState() {
+  const o = permOptions.find((x) => x.option_id === Number(permOptionSelect.value));
+  const granted = !!(o && o.granted);
+  permOptionState.textContent = o ? (granted ? 'Estado: visible' : 'Estado: oculto') : '';
+  permOptionState.className = 'state-tag ' + (granted ? 'on' : 'off');
+  $('#btnGrantOption').disabled = !o || granted;
+  $('#btnRevokeOption').disabled = !o || !granted;
+}
+
+async function applyOptionPerm(grant) {
+  const profile_id = Number(permProfileSelect.value);
+  const option_id = Number(permOptionSelect.value);
+  if (!profile_id || !option_id) return;
+  const r = await toProcess('Permission', grant ? 'grantOption' : 'revokeOption', [profile_id, option_id]);
+  if (!r.ok) { showPermMsg(r.data.msg || 'Error.', false); return; }
+  showPermMsg(grant ? 'Menú asignado.' : 'Menú desasignado.', true);
+  await loadPermOptions();
+  // Si toqué mis propios menús, refresco sesión + pestañas sin recargar la página.
+  if (profile_id === currentSession.profile_id) {
+    const me = await api('/me');
+    if (me.ok && me.data.objectSession) { currentSession = me.data.objectSession; buildTabs(currentSession); }
+  }
 }
 
 // ---- Pestaña "Mantenimiento de perfiles" (CRUD de profile) ----
@@ -331,16 +328,19 @@ async function loadProfileCrud() {
   }
 }
 
-// ---- Pestaña "Auditoría" ----
+// ---- Pestaña "Auditoría" (CU-05): últimos 500, con filtro opcional por rango de fechas ----
 async function loadAuditData() {
   showAuditMsg('');
   auditList.innerHTML = '';
-  const res = await toProcess('Audit', 'listAudit', [50]);
+  // El servidor interpreta cadenas vacías como "sin límite" por ese lado del rango.
+  const params = { dateFrom: auditFrom.value || null, dateTo: auditTo.value || null, limit: 500 };
+  const res = await toProcess('Audit', 'listAudit', params);
   if (!res.ok) {
     showAuditMsg(res.data.msg || 'No tienes permiso para ver la auditoría.', false);
     return;
   }
   const rows = res.data.data || [];
+  if (rows.length) showAuditMsg(`${rows.length} movimiento(s).`, true);
   if (!rows.length) {
     const empty = document.createElement('p');
     empty.className = 'hint';
@@ -507,20 +507,37 @@ async function refreshMemberList() {
 }
 
 // ---- Pestaña "Mantenimiento de usuarios" (CU-02) ----
-function loadUserMgmt() {
+async function loadUserMgmt() {
   // El formulario de crear cuenta solo se muestra a quien tiene permiso.
   createUserBlock.classList.toggle('hidden', !currentSession.canRegister);
   formRegister.reset();
   showRegisterMsg('');
+  await refreshUnlinkedPersons();
   refreshUsersList();
+}
+
+// Personas sin cuenta: alimentan el selector "Persona (opcional)" al crear una cuenta.
+async function refreshUnlinkedPersons() {
+  const res = await toProcess('Person', 'listPersons', ['']);
+  const free = res.ok ? res.data.data.filter((p) => !p.linked_user_id) : [];
+  fillSelect(registerPersonSelect, free, 'person_id',
+    (p) => `${p.person_na} ${p.person_ln} · ${p.person_ci}`, '— Sin persona —');
 }
 
 async function refreshUsersList() {
   showUsersMsg('');
   usersList.innerHTML = '';
-  const res = await toProcess('User', 'listUsers', []);
+  const res = await toProcess('User', 'listUsers', [userSearch.value.trim()]);
   if (!res.ok) { showUsersMsg(res.data.msg || 'No tienes permiso para listar usuarios.', false); return; }
-  for (const u of res.data.data) {
+  const rows = res.data.data;
+  if (!rows.length) {
+    const empty = document.createElement('p');
+    empty.className = 'hint';
+    empty.textContent = 'Sin usuarios que coincidan.';
+    usersList.appendChild(empty);
+    return;
+  }
+  for (const u of rows) {
     const item = document.createElement('div');
     item.className = 'item';
 
@@ -533,6 +550,11 @@ async function refreshUsersList() {
     profTag.className = 'tag';
     profTag.textContent = u.profiles;
     info.append(name, ' ', profTag);
+    // Línea secundaria: persona vinculada (o aviso de que no tiene).
+    const sub = document.createElement('span');
+    sub.className = 'item-sub';
+    sub.textContent = u.person_id ? `Persona: ${u.person_name} · ${u.person_ci}` : 'Sin persona vinculada';
+    info.appendChild(sub);
 
     const right = document.createElement('span');
     right.className = 'row-actions';
@@ -542,6 +564,20 @@ async function refreshUsersList() {
     badge.className = 'status-badge ' + (active ? 'on' : 'off');
     badge.textContent = u.status_de;
     right.appendChild(badge);
+
+    // Vincular/desvincular persona (solo con permiso de crear cuentas = admin).
+    if (currentSession.canRegister) {
+      if (u.person_id) {
+        right.appendChild(miniButton('Desvincular', async () => {
+          if (!confirm(`¿Quitar el vínculo de persona de "${u.user_na}"?`)) return;
+          const r = await toProcess('Person', 'unlinkPersonUser', [u.user_id]);
+          showUsersMsg(r.ok ? 'Vínculo quitado.' : (r.data.msg || 'Error.'), r.ok);
+          if (r.ok) { refreshUnlinkedPersons(); refreshUsersList(); }
+        }, true));
+      } else {
+        right.appendChild(miniButton('Vincular', () => linkPersonToUser(u)));
+      }
+    }
 
     // Toggle activar/desactivar: solo si tiene permiso; bloqueado sobre tu propia cuenta activa.
     if (currentSession.canManageUsers) {
@@ -564,6 +600,92 @@ async function refreshUsersList() {
   }
 }
 
+// Vincular una persona (sin cuenta) a una cuenta existente, vía prompt de selección simple.
+async function linkPersonToUser(u) {
+  const res = await toProcess('Person', 'listPersons', ['']);
+  const free = res.ok ? res.data.data.filter((p) => !p.linked_user_id) : [];
+  if (!free.length) { showUsersMsg('No hay personas libres para vincular. Registra una primero.', false); return; }
+  const lista = free.map((p, i) => `${i + 1}) ${p.person_na} ${p.person_ln} · ${p.person_ci}`).join('\n');
+  const elegido = prompt(`Vincular persona a "${u.user_na}". Escribe el número:\n\n${lista}`);
+  if (elegido == null) return;
+  const idx = Number(elegido) - 1;
+  if (!(idx >= 0 && idx < free.length)) { showUsersMsg('Selección no válida.', false); return; }
+  const r = await toProcess('Person', 'linkPersonUser', [free[idx].person_id, u.user_id]);
+  showUsersMsg(r.ok ? 'Persona vinculada.' : (r.data.msg || 'Error.'), r.ok);
+  if (r.ok) { refreshUnlinkedPersons(); refreshUsersList(); }
+}
+
+// ---- Pestaña "Mantenimiento de personas" (nómina): crear/buscar/editar ----
+async function loadPersonData() {
+  showPersonMsg('');
+  resetPersonForm();
+  const ch = await toProcess('Person', 'listCharges', []);
+  fillSelect(personChargeSelect, ch.ok ? ch.data.data : [], 'id', (c) => c.name, '— Sin cargo —');
+  refreshPersonList();
+}
+
+function resetPersonForm() {
+  formPerson.reset();
+  personIdField.value = '';
+  personFormTitle.textContent = 'Registrar persona';
+  btnSavePerson.textContent = 'Registrar';
+  btnCancelPerson.classList.add('hidden');
+}
+
+async function refreshPersonList() {
+  personList.innerHTML = '';
+  const res = await toProcess('Person', 'listPersons', [personSearch.value.trim()]);
+  if (!res.ok) { showPersonMsg(res.data.msg || 'No tienes permiso para ver personas.', false); return; }
+  const rows = res.data.data;
+  if (!rows.length) {
+    const empty = document.createElement('p');
+    empty.className = 'hint';
+    empty.textContent = 'Sin personas que coincidan.';
+    personList.appendChild(empty);
+    return;
+  }
+  for (const p of rows) {
+    const item = document.createElement('div');
+    item.className = 'item';
+
+    const info = document.createElement('span');
+    const name = document.createElement('b');
+    name.textContent = `${p.person_na} ${p.person_ln}`;
+    info.append(name);
+    const sub = document.createElement('span');
+    sub.className = 'item-sub';
+    sub.textContent = `CI ${p.person_ci} · ${p.charge_de} · ${p.person_mail} · ${p.person_phone}` +
+      (p.linked_user ? ` · cuenta: ${p.linked_user}` : ' · sin cuenta');
+    info.appendChild(sub);
+
+    const actions = document.createElement('span');
+    actions.className = 'row-actions';
+    actions.appendChild(miniButton('Editar', () => startEditPerson(p)));
+
+    item.appendChild(info);
+    item.appendChild(actions);
+    personList.appendChild(item);
+  }
+}
+
+// Carga una persona en el formulario para editarla (mismo form, modo edición).
+function startEditPerson(p) {
+  personIdField.value = p.person_id;
+  formPerson.elements.person_ci.value = p.person_ci;
+  formPerson.elements.person_na.value = p.person_na;
+  formPerson.elements.person_ln.value = p.person_ln;
+  formPerson.elements.person_mail.value = p.person_mail === '—' ? '' : p.person_mail;
+  formPerson.elements.person_phone.value = p.person_phone === '—' ? '' : p.person_phone;
+  personChargeSelect.value = p.charge_id || '';
+  personFormTitle.textContent = `Editar a ${p.person_na} ${p.person_ln}`;
+  btnSavePerson.textContent = 'Guardar cambios';
+  btnCancelPerson.classList.remove('hidden');
+  showPersonMsg('');
+  // Sube al formulario (arriba del panel con scroll) para no editar "a ciegas".
+  const box = personList.closest('.tab-content');
+  if (box && box.scrollTo) box.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 // Definicion de pestañas: etiqueta, permiso que las habilita, y carga de datos al abrir.
 // Cada pestaña corresponde a una OPCION de menu (option_de = id de la pestaña). Su
 // visibilidad la decide permission_option (session.visibleOptions); las acciones de adentro
@@ -572,6 +694,7 @@ async function refreshUsersList() {
 // muestran SUS opciones (aunque el perfil tenga opciones de otros subsistemas).
 const TABS = [
   { id: 'userMgmtBox',    label: 'Mantenimiento de usuarios',   load: loadUserMgmt,    sub: 'security' },
+  { id: 'personMgmtBox',  label: 'Mantenimiento de personas',   load: loadPersonData,  sub: 'security' },
   { id: 'profileBox',     label: 'Mantenimiento de perfiles',   load: loadProfileCrud, sub: 'security' },
   { id: 'manageBox',      label: 'Asignar perfiles a usuarios', load: loadManageData,  sub: 'security' },
   { id: 'permBox',        label: 'Asignar permisos',            load: loadPermData,    sub: 'security' },
@@ -750,17 +873,64 @@ profileSwitchSelect.addEventListener('change', async () => {
 
 formRegister.addEventListener('submit', async (e) => {
   e.preventDefault();
-  const body = Object.fromEntries(new FormData(formRegister));
+  const fd = new FormData(formRegister);
+  const body = { user_na: fd.get('user_na'), user_pw: fd.get('user_pw') };
+  // Persona opcional: solo se envía si se eligió una en el selector.
+  if (registerPersonSelect.value) body.person_id = Number(registerPersonSelect.value);
   const { ok, data } = await toProcess('User', 'insertUser', body);
   if (ok) {
     formRegister.reset();
     showRegisterMsg('Usuario creado.', true);
+    refreshUnlinkedPersons();
     refreshUsersList();
   } else if (data.errors && data.errors.length) {
     showRegisterMsg('• ' + data.errors.join('\n• '), false);
   } else {
     showRegisterMsg(data.msg, false);
   }
+});
+
+// Búsqueda de usuarios (por usuario, nombre o cédula) con debounce.
+let userSearchTimer = null;
+userSearch.addEventListener('input', () => {
+  clearTimeout(userSearchTimer);
+  userSearchTimer = setTimeout(refreshUsersList, 250);
+});
+
+// ---- Mantenimiento de personas ----
+formPerson.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(formPerson);
+  const body = {
+    person_ci: fd.get('person_ci'),
+    person_na: fd.get('person_na'),
+    person_ln: fd.get('person_ln'),
+    person_mail: fd.get('person_mail'),
+    person_phone: fd.get('person_phone'),
+    charge_id: personChargeSelect.value ? Number(personChargeSelect.value) : null
+  };
+  const editId = personIdField.value;
+  const method = editId ? 'updatePerson' : 'insertPerson';
+  if (editId) body.person_id = Number(editId);
+  const { ok, data } = await toProcess('Person', method, body);
+  if (ok) {
+    showPersonMsg(editId ? 'Persona actualizada.' : 'Persona registrada.', true);
+    resetPersonForm();
+    refreshPersonList();
+    refreshUnlinkedPersons();
+  } else if (data.errors && data.errors.length) {
+    showPersonMsg('• ' + data.errors.join('\n• '), false);
+  } else {
+    showPersonMsg(data.msg || 'Error.', false);
+  }
+});
+
+btnCancelPerson.addEventListener('click', () => { resetPersonForm(); showPersonMsg(''); });
+
+let personSearchTimer = null;
+personSearch.addEventListener('input', () => {
+  clearTimeout(personSearchTimer);
+  personSearchTimer = setTimeout(refreshPersonList, 250);
 });
 
 formProfile.addEventListener('submit', async (e) => {
@@ -817,14 +987,22 @@ $('#btnAssignMember').addEventListener('click', async () => {
   if (ok) { refreshMemberList(); refreshProyectList(); }
 });
 
-permProfileSelect.addEventListener('change', () => { permPage = 0; refreshPermList(); refreshPermOptions(); });
+// ---- Cascada de "Asignar permisos" ----
+// Cambiar de perfil recarga métodos y opciones (con el nuevo estado granted).
+permProfileSelect.addEventListener('change', () => { loadPermMethods(); loadPermOptions(); });
+permSubsystemSelect.addEventListener('change', loadPermObjects);
+permObjectSelect.addEventListener('change', loadPermMethods);
+permMethodSelect.addEventListener('change', renderMethodState);
+$('#btnGrantMethod').addEventListener('click', () => applyMethodPerm(true));
+$('#btnRevokeMethod').addEventListener('click', () => applyMethodPerm(false));
+permOptSubsystemSelect.addEventListener('change', loadPermOptions);
+permOptionSelect.addEventListener('change', renderOptionState);
+$('#btnGrantOption').addEventListener('click', () => applyOptionPerm(true));
+$('#btnRevokeOption').addEventListener('click', () => applyOptionPerm(false));
 
-// Busqueda server-side con debounce: cada cambio reinicia a la pagina 1 y re-consulta.
-let permSearchTimer = null;
-permSearch.addEventListener('input', () => {
-  clearTimeout(permSearchTimer);
-  permSearchTimer = setTimeout(() => { permPage = 0; refreshPermList(); renderPermOptions(); }, 250);
-});
+// ---- Filtros de auditoría ----
+$('#btnAuditFilter').addEventListener('click', loadAuditData);
+$('#btnAuditClear').addEventListener('click', () => { auditFrom.value = ''; auditTo.value = ''; loadAuditData(); });
 
 // Al recargar la pagina, restaura la sesion si la cookie sigue viva y reanuda en la
 // seleccion de subsistema.

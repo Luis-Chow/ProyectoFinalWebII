@@ -3,6 +3,27 @@ const { AppError } = require('./dbcomponent');
 const SEP = '-';
 const buildKey = (...parts) => parts.join(SEP);
 
+// Validacion compartida por insertPerson/updatePerson. Devuelve los campos ya limpios
+// (trim + null si van vacios) o lanza AppError(400) con la lista de errores.
+function validatePerson(params) {
+    const person_ci = (params.person_ci || '').trim();
+    const person_na = (params.person_na || '').trim();
+    const person_ln = (params.person_ln || '').trim();
+    const person_mail = (params.person_mail || '').trim();
+    const person_phone = (params.person_phone || '').trim();
+    const charge_id = params.charge_id ? Number(params.charge_id) : null;
+
+    const errors = [];
+    if (person_ci.length < 4) errors.push('La cédula debe tener al menos 4 caracteres.');
+    if (!/^[0-9A-Za-z-]+$/.test(person_ci || '-')) errors.push('La cédula solo admite números, letras y guiones.');
+    if (person_na.length < 2) errors.push('El nombre debe tener al menos 2 caracteres.');
+    if (person_ln.length < 2) errors.push('El apellido debe tener al menos 2 caracteres.');
+    if (person_mail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(person_mail)) errors.push('El correo no tiene un formato válido.');
+    if (errors.length) throw new AppError(400, 'No se pudo guardar la persona: revisa los requisitos.', errors);
+
+    return { person_ci, person_na, person_ln, person_mail: person_mail || null, person_phone: person_phone || null, charge_id };
+}
+
 // Metodos "ricos": funciones de servidor con validacion, valores forzados y transaccion.
 // Clave: subsystem.objectName.methodName. Si un metodo NO esta aqui, exeMethod cae al
 // comportamiento simple (ejecutar 1 sentencia SQL con los params del cliente).
@@ -27,20 +48,85 @@ const businessMethods = {
         const PROFILE_EMPLEADO = 2;
         const STATUS_ACTIVO = 1;
 
-        // 3) Transaccion: el usuario y su user_profile se crean juntos, o no se crea nada.
-        //    En el modelo nuevo "user" no tiene profile_id: el perfil vive en user_profile.
+        // 2b) Persona a vincular (opcional): una cuenta puede crearse ya asociada a una
+        //     persona de la nomina, o quedar sin persona y vincularla despues.
+        const { person_id } = ctx.params || {};
+
+        // 3) Transaccion: el usuario, su user_profile y el vinculo con la persona (si se
+        //    eligio) se crean juntos, o no se crea nada. "user" no tiene profile_id: el
+        //    perfil vive en user_profile.
         try {
             return await ctx.tx(async (q) => {
                 const rows = await q(global.dbc.getSentence('security', 'insertUser'),
                     [user_na, user_pw, STATUS_ACTIVO]);
                 const newUserId = rows[0].user_id;
                 await q(global.dbc.getSentence('model', 'insertUserProfile'), [newUserId, PROFILE_EMPLEADO]);
+                if (person_id) {
+                    await q(global.dbc.getSentence('security', 'linkPersonUser'), [person_id, newUserId]);
+                }
                 return { user_id: newUserId };
             });
         } catch (err) {
-            if (err.code === '23505') throw new AppError(409, 'El usuario ya existe.');
+            if (err.code === '23505') {
+                // Puede chocar el user_na o el vinculo (persona/usuario ya asociados).
+                if (String(err.constraint || '').includes('person_user')) {
+                    throw new AppError(409, 'Esa persona ya tiene una cuenta asociada.');
+                }
+                throw new AppError(409, 'El usuario ya existe.');
+            }
             throw err;
         }
+    },
+
+    // ---- Mantenimiento de personas (nomina): CRUD + vinculo con cuentas ----
+
+    'security.Person.insertPerson': async (ctx) => {
+        const p = validatePerson(ctx.params || {});
+        try {
+            const rows = await global.dbc.exeQuery(global.dbc.getSentence('security', 'insertPerson'),
+                [p.person_ci, p.person_na, p.person_ln, p.person_mail, p.person_phone, p.charge_id]);
+            return { person_id: rows[0].person_id };
+        } catch (err) {
+            if (err.code === '23505') throw new AppError(409, 'Ya existe una persona con esa cédula.');
+            throw err;
+        }
+    },
+
+    'security.Person.updatePerson': async (ctx) => {
+        const { person_id } = ctx.params || {};
+        if (!person_id) throw new AppError(400, 'Falta la persona a editar.');
+        const p = validatePerson(ctx.params || {});
+        try {
+            await global.dbc.exeQuery(global.dbc.getSentence('security', 'updatePerson'),
+                [person_id, p.person_ci, p.person_na, p.person_ln, p.person_mail, p.person_phone, p.charge_id]);
+            return { updated: true };
+        } catch (err) {
+            if (err.code === '23505') throw new AppError(409, 'Ya existe una persona con esa cédula.');
+            throw err;
+        }
+    },
+
+    // Vincula una persona existente con una cuenta existente (1:1). Los UNIQUE de
+    // person_user impiden que una persona o una cuenta tengan mas de un vinculo.
+    'security.Person.linkPersonUser': async (ctx) => {
+        const [person_id, user_id] = ctx.params || [];
+        if (!person_id || !user_id) throw new AppError(400, 'Faltan la persona o la cuenta.');
+        try {
+            await global.dbc.exeQuery(global.dbc.getSentence('security', 'linkPersonUser'), [person_id, user_id]);
+            return { linked: true };
+        } catch (err) {
+            if (err.code === '23505') throw new AppError(409, 'Esa persona o esa cuenta ya tienen un vínculo.');
+            throw err;
+        }
+    },
+
+    // ---- Auditoria (CU-05) ----
+    // Por defecto los ultimos 500 movimientos; opcionalmente acotado por rango de fechas.
+    'security.Audit.listAudit': async (ctx) => {
+        const { dateFrom = null, dateTo = null, limit = 500 } = ctx.params || {};
+        const rows = await global.dbc.exeQuery(global.dbc.getSentence('security', 'listAudit'),
+            [dateFrom || null, dateTo || null, Number(limit) || 500]);
+        return rows;
     },
 
     // CU-02 Mantenimiento de usuarios: activar/desactivar una cuenta (status_id).
@@ -72,7 +158,7 @@ const businessMethods = {
         if (!profile_id || !method_id) throw new AppError(400, 'Faltan profile_id o method_id.');
 
         // Candado anti-bloqueo: NO puedes quitarte a TI MISMO (perfil activo) un metodo del
-        // objeto Permission (listPermissionMethods/grantMethod/revokeMethod). Si lo hicieras te
+        // objeto Permission (listMethods/grantMethod/revokeMethod...). Si lo hicieras te
         // quedarias sin poder gestionar permisos y sin forma de revertirlo desde la app.
         const activeProfile = ctx.session && ctx.session.profile_id;
         if (Number(profile_id) === Number(activeProfile)) {
@@ -127,12 +213,6 @@ const businessMethods = {
         await global.sec.loadPermissionMethod();
         await global.sec.loadPermissionOption();
         return { deleted: true };
-    },
-
-    'security.Audit.listAudit': async (ctx) => {
-        const [limit = 50] = ctx.params || [];
-        const rows = await global.dbc.exeQuery(global.dbc.getSentence('security', 'listAudit'), [Number(limit)]);
-        return rows;
     },
 
     // ---- Subsistema de proyectos (CU-06 / CU-07) ----

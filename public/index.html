@@ -62,14 +62,64 @@
                   <input type="password" name="user_pw" autocomplete="new-password" required>
                 </label>
                 <small class="hint">Mínimo 8 caracteres, sin espacios, con mayúscula, minúscula y número.</small>
+                <label>Persona (opcional)
+                  <select id="registerPersonSelect"></select>
+                </label>
+                <small class="hint">Vincula la cuenta a una persona de la nómina sin cuenta. Puedes hacerlo también después.</small>
                 <button type="submit">Crear cuenta</button>
               </form>
               <p id="registerMsg" class="msg"></p>
             </div>
 
             <h3 class="subhead">Usuarios</h3>
+            <input type="search" id="userSearch" class="search-input" placeholder="Buscar por usuario, nombre o cédula…" autocomplete="off">
             <p id="usersMsg" class="msg"></p>
             <div id="usersList" class="list"></div>
+          </section>
+
+          <!-- Mantenimiento de personas (nómina): crear/buscar/editar; vínculo con cuentas -->
+          <section id="personMgmtBox" class="tabpanel hidden">
+            <h2>Mantenimiento de personas</h2>
+
+            <div id="createPersonBlock">
+              <h3 class="subhead" id="personFormTitle">Registrar persona</h3>
+              <form id="formPerson" class="form">
+                <input type="hidden" name="person_id" id="personIdField">
+                <div class="assign-row">
+                  <label>Cédula
+                    <input type="text" name="person_ci" maxlength="20" required>
+                  </label>
+                  <label>Cargo
+                    <select id="personChargeSelect"></select>
+                  </label>
+                </div>
+                <div class="assign-row">
+                  <label>Nombre
+                    <input type="text" name="person_na" maxlength="50" required>
+                  </label>
+                  <label>Apellido
+                    <input type="text" name="person_ln" maxlength="50" required>
+                  </label>
+                </div>
+                <div class="assign-row">
+                  <label>Correo
+                    <input type="email" name="person_mail" maxlength="100">
+                  </label>
+                  <label>Teléfono
+                    <input type="text" name="person_phone" maxlength="30">
+                  </label>
+                </div>
+                <div class="panel-actions">
+                  <button type="submit" id="btnSavePerson">Registrar</button>
+                  <button type="button" id="btnCancelPerson" class="secondary hidden">Cancelar edición</button>
+                </div>
+              </form>
+              <p id="personMsg" class="msg"></p>
+            </div>
+
+            <h3 class="subhead">Personas</h3>
+            <input type="search" id="personSearch" class="search-input" placeholder="Buscar por nombre o cédula…" autocomplete="off">
+            <div id="personList" class="list"></div>
           </section>
 
           <!-- Asignar perfiles a usuarios (CU-03) -->
@@ -89,20 +139,48 @@
             <div id="userProfilesList" class="list"></div>
           </section>
 
-          <!-- Asignar permisos (CU-04): métodos (ejecutar) + opciones (ver menús) -->
+          <!-- Asignar permisos (CU-04): cascada Subsistema → Clase → Método + Asignar/Desasignar.
+               Filtrar por niveles evita listar de golpe TODOS los permisos del sistema. -->
           <section id="permBox" class="tabpanel hidden">
             <h2>Asignar permisos</h2>
             <label>Perfil
               <select id="permProfileSelect"></select>
             </label>
-            <small class="hint">Métodos = ejecutar acciones · Opciones = ver menús. El cambio aplica al instante.</small>
-            <input type="search" id="permSearch" class="search-input" placeholder="Filtrar por método, objeto o menú…" autocomplete="off">
+            <small class="hint">Elige el subsistema y la clase para acotar; luego asigna o desasigna método por método.</small>
             <p id="permMsg" class="msg"></p>
-            <h3 class="subhead">Métodos</h3>
-            <div id="permList" class="list"></div>
-            <div id="permPager" class="pager"></div>
-            <h3 class="subhead">Opciones (menús)</h3>
-            <div id="permOptionList" class="list"></div>
+
+            <h3 class="subhead">Métodos (ejecutar acciones)</h3>
+            <div class="cascade">
+              <label>Subsistema
+                <select id="permSubsystemSelect"></select>
+              </label>
+              <label>Clase
+                <select id="permObjectSelect"></select>
+              </label>
+              <label>Método
+                <select id="permMethodSelect"></select>
+              </label>
+            </div>
+            <div class="cascade-actions">
+              <span id="permMethodState" class="state-tag"></span>
+              <button id="btnGrantMethod" type="button" class="perm-on">Asignar</button>
+              <button id="btnRevokeMethod" type="button" class="perm-off">Desasignar</button>
+            </div>
+
+            <h3 class="subhead">Opciones (ver menús)</h3>
+            <div class="cascade">
+              <label>Subsistema
+                <select id="permOptSubsystemSelect"></select>
+              </label>
+              <label>Menú
+                <select id="permOptionSelect"></select>
+              </label>
+            </div>
+            <div class="cascade-actions">
+              <span id="permOptionState" class="state-tag"></span>
+              <button id="btnGrantOption" type="button" class="perm-on">Asignar</button>
+              <button id="btnRevokeOption" type="button" class="perm-off">Desasignar</button>
+            </div>
           </section>
 
           <!-- Mantenimiento de perfiles (CRUD de profile) -->
@@ -118,10 +196,22 @@
             <div id="profileCrudList" class="list"></div>
           </section>
 
-          <!-- Auditoría de acciones del sistema -->
+          <!-- Auditoría de acciones del sistema (CU-05): últimos 500, con filtro por fechas -->
           <section id="auditBox" class="tabpanel hidden">
             <h2>Auditoría</h2>
-            <p class="hint">Últimas acciones registradas en el sistema.</p>
+            <p class="hint">Por defecto, los últimos 500 movimientos. Filtra por rango de fechas si lo necesitas.</p>
+            <div class="cascade">
+              <label>Desde
+                <input type="date" id="auditFrom">
+              </label>
+              <label>Hasta
+                <input type="date" id="auditTo">
+              </label>
+            </div>
+            <div class="cascade-actions">
+              <button id="btnAuditFilter" type="button">Filtrar</button>
+              <button id="btnAuditClear" type="button" class="secondary">Limpiar</button>
+            </div>
             <p id="auditMsg" class="msg"></p>
             <div id="auditList" class="list"></div>
           </section>
