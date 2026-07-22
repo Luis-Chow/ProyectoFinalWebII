@@ -350,6 +350,16 @@ const businessMethods = {
         );
         if (!activity.length) throw new AppError(404, 'La actividad no existe.');
 
+        // Solo se pueden asignar actividades a MIEMBROS del proyecto (proyect_role_person).
+        // Para incorporar a alguien primero hay que agregarlo como miembro (CU-07).
+        const member = await global.dbc.exeQuery(
+            global.dbc.getSentence('proyectos', 'memberExists'),
+            [activity[0].proyect_id, person_id]
+        );
+        if (!(member[0] && member[0].dup)) {
+            throw new AppError(409, 'Esa persona no es miembro del proyecto. Agrégala primero como miembro del proyecto.');
+        }
+
         // ON CONFLICT DO NOTHING RETURNING: si la persona ya estaba asignada no devuelve
         // fila -> avisamos con 409 en vez de simular un alta que no ocurrió.
         const inserted = await global.dbc.exeQuery(

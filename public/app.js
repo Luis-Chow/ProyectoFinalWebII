@@ -578,14 +578,7 @@ async function loadActivityData() {
     fillSelect(activityFilterProyect, proyects.data.data, 'id', (p) => `#${p.id} · ${p.name}`, '— Todos los proyectos —');
   }
 
-  // Cargar personas para asignar
-  const persons = await toProcess('Proyect', 'listPersons', [], 'proyectos');
-  if (persons.ok) {
-    fillSelect(activityPersonSelect, persons.data.data, 'person_id',
-      (p) => `${p.person_na} ${p.person_ln} · ${p.charge_de}`, '— Selecciona una persona —');
-  }
-
-  // Mostrar actividades (todas o filtrar si hay proyecto seleccionado)
+  // Las personas asignables se cargan por proyecto al pulsar "Asignar" (solo miembros).
   await refreshActivityList();
 }
 
@@ -677,12 +670,18 @@ function startEditActivity(a) {
   if (box && box.scrollTo) box.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function selectActivityForAssign(a) {
+async function selectActivityForAssign(a) {
   currentActivity = a;
   activityAssignTitle.textContent = `Asignar personas a «${a.name}»`;
   activityAssignBlock.classList.remove('hidden');
   activityReportBlock.classList.add('hidden');
   showAssignMsg('');
+  // Solo se pueden asignar MIEMBROS del proyecto: se cargan los miembros de ese proyecto.
+  const members = await toProcess('Proyect', 'listProyectMembers', [a.proyect_id], 'proyectos');
+  const rows = members.ok ? members.data.data : [];
+  fillSelect(activityPersonSelect, rows, 'person_id',
+    (p) => `${p.person_na} ${p.person_ln} · ${p.role_de}`, '— Selecciona un miembro —');
+  if (!rows.length) showAssignMsg('Este proyecto no tiene miembros. Agrégalos en "Mantenimiento de proyectos" → Miembros.', false);
   refreshAssigneeList();
 }
 
