@@ -81,6 +81,21 @@ const myReportTitle = $('#myReportTitle');
 const formMyReport = $('#formMyReport');
 const myReportMsg = $('#myReportMsg');
 
+// ---- Notificaciones (CU-09), reportes de proyectos (CU-14/CU-15) ----
+const formNotify = $('#formNotify');
+const notifyProyectSelect = $('#notifyProyectSelect');
+const notifyMsg = $('#notifyMsg');
+const notifyList = $('#notifyList');
+const myNotifMsg = $('#myNotifMsg');
+const myNotifList = $('#myNotifList');
+const proyectStatusFilter = $('#proyectStatusFilter');
+const proyectStatusMsg = $('#proyectStatusMsg');
+const proyectStatusList = $('#proyectStatusList');
+const progressProyectSelect = $('#progressProyectSelect');
+const progressMsg = $('#progressMsg');
+const progressOverall = $('#progressOverall');
+const progressChart = $('#progressChart');
+
 // Estado de la sesion en el cliente.
 let currentSession = null;
 let currentProfiles = [];
@@ -112,6 +127,10 @@ const showActivityMsg = msgIn(activityMsg);
 const showAssignMsg = msgIn(assignMsg);
 const showReportMsg = msgIn(reportMsg);
 const showMyReportMsg = msgIn(myReportMsg);
+const showNotifyMsg = msgIn(notifyMsg);
+const showMyNotifMsg = msgIn(myNotifMsg);
+const showProyectStatusMsg = msgIn(proyectStatusMsg);
+const showProgressMsg = msgIn(progressMsg);
 
 // Rellena un <select> genérico a partir de filas: value = fila[valueKey], texto = labelFn(fila).
 // Con `placeholder` antepone una opción vacía (para "elige…" o "sin persona").
@@ -944,6 +963,169 @@ function startEditPerson(p) {
   if (box && box.scrollTo) box.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+// ---- Pestaña "Notificar al equipo" (CU-09, líder) ----
+async function loadNotifyData() {
+  showNotifyMsg('');
+  const proyects = await toProcess('Proyect', 'listProyects', [], 'proyectos');
+  fillSelect(notifyProyectSelect, proyects.ok ? proyects.data.data : [], 'id', (p) => `#${p.id} · ${p.name}`);
+  await refreshNotifyList();
+}
+
+async function refreshNotifyList() {
+  notifyList.innerHTML = '';
+  const proyect_id = Number(notifyProyectSelect.value);
+  if (!proyect_id) return;
+  const res = await toProcess('Notification', 'listProyectNotifications', [proyect_id], 'proyectos');
+  if (!res.ok) { showNotifyMsg(res.data.msg || 'Error.', false); return; }
+  renderNotifItems(notifyList, res.data.data, false);
+}
+
+// ---- Pestaña "Mis notificaciones" (CU-09, empleado) ----
+async function loadMyNotif() {
+  showMyNotifMsg('');
+  myNotifList.innerHTML = '';
+  if (!currentSession.person_id) { showMyNotifMsg('No tienes una persona vinculada a tu cuenta.', false); return; }
+  const res = await toProcess('Notification', 'getMyNotifications', [currentSession.person_id], 'proyectos');
+  if (!res.ok) { showMyNotifMsg(res.data.msg || 'Error.', false); return; }
+  renderNotifItems(myNotifList, res.data.data, true);
+}
+
+// Pinta una lista de notificaciones (con o sin el nombre del proyecto).
+function renderNotifItems(container, rows, showProyect) {
+  if (!rows.length) {
+    const empty = document.createElement('p');
+    empty.className = 'hint';
+    empty.textContent = 'No hay notificaciones.';
+    container.appendChild(empty);
+    return;
+  }
+  for (const n of rows) {
+    const item = document.createElement('div');
+    item.className = 'item notif-item';
+    const meta = document.createElement('div');
+    meta.className = 'notif-meta';
+    meta.textContent = `${n.created_at} · ${n.sender}` + (showProyect ? ` · ${n.proyect_name}` : '');
+    const body = document.createElement('div');
+    body.className = 'notif-body';
+    body.textContent = n.message;
+    item.appendChild(meta);
+    item.appendChild(body);
+    container.appendChild(item);
+  }
+}
+
+// ---- Pestaña "Proyectos activos/culminados" (CU-15, líder) ----
+async function loadProyectStatus() {
+  showProyectStatusMsg('');
+  await refreshProyectStatusList();
+}
+
+async function refreshProyectStatusList() {
+  proyectStatusList.innerHTML = '';
+  const res = await toProcess('Proyect', 'listProyects', [], 'proyectos');
+  if (!res.ok) { showProyectStatusMsg(res.data.msg || 'Error.', false); return; }
+  const filter = proyectStatusFilter.value;
+  let rows = res.data.data;
+  if (filter !== 'all') rows = rows.filter((p) => String(p.status_id) === filter);
+  const activos = rows.filter((p) => p.status_id === 1);
+  const culminados = rows.filter((p) => p.status_id === 3);
+  showProyectStatusMsg(`${activos.length} activo(s) · ${culminados.length} culminado(s)`, true);
+  renderProyectGroup('Activos', activos);
+  renderProyectGroup('Culminados', culminados);
+}
+
+function renderProyectGroup(title, rows) {
+  if (!rows.length) return;
+  const head = document.createElement('div');
+  head.className = 'group-head';
+  head.textContent = `${title} (${rows.length})`;
+  proyectStatusList.appendChild(head);
+  for (const p of rows) {
+    const item = document.createElement('div');
+    item.className = 'item';
+    const left = document.createElement('span');
+    left.textContent = `#${p.id} · ${p.name}`;
+    const sub = document.createElement('span');
+    sub.className = 'item-sub';
+    sub.textContent = `Líder: ${p.leader_na} · ${p.members} miembro(s)`;
+    left.appendChild(sub);
+    const badge = document.createElement('span');
+    badge.className = 'status-badge ' + (p.status_id === 1 ? 'on' : 'off');
+    badge.textContent = p.status_de;
+    item.appendChild(left);
+    item.appendChild(badge);
+    proyectStatusList.appendChild(item);
+  }
+}
+
+// ---- Pestaña "Gráficas de avance" (CU-14, líder) ----
+async function loadProgress() {
+  showProgressMsg('');
+  progressChart.innerHTML = '';
+  progressOverall.innerHTML = '';
+  const proyects = await toProcess('Proyect', 'listProyects', [], 'proyectos');
+  fillSelect(progressProyectSelect, proyects.ok ? proyects.data.data : [], 'id', (p) => `#${p.id} · ${p.name}`);
+  await renderProgress();
+}
+
+// Avance de una actividad = 100 si está completada, si no su último % reportado (50-100),
+// o 0 si aún no tiene reporte. El avance del proyecto es el promedio de sus actividades.
+function activityProgress(a) {
+  if (a.completed) return 100;
+  if (a.last_percentage != null) return Number(a.last_percentage);
+  return 0;
+}
+
+async function renderProgress() {
+  progressChart.innerHTML = '';
+  progressOverall.innerHTML = '';
+  const proyect_id = Number(progressProyectSelect.value);
+  if (!proyect_id) return;
+  const res = await toProcess('Activity', 'listActivities', [proyect_id], 'proyectos');
+  if (!res.ok) { showProgressMsg(res.data.msg || 'Error.', false); return; }
+  const acts = res.data.data;
+  if (!acts.length) { showProgressMsg('Este proyecto no tiene actividades.', false); return; }
+  showProgressMsg('');
+
+  const overallPct = Math.round(acts.reduce((sum, a) => sum + activityProgress(a), 0) / acts.length);
+  const ov = document.createElement('div');
+  ov.className = 'overall';
+  const num = document.createElement('div');
+  num.className = 'overall-num';
+  num.textContent = `${overallPct}%`;
+  const txt = document.createElement('div');
+  txt.className = 'overall-txt';
+  const done = acts.filter((a) => activityProgress(a) >= 100).length;
+  txt.textContent = `Avance general del proyecto · ${done}/${acts.length} actividad(es) completada(s)`;
+  ov.appendChild(num);
+  ov.appendChild(txt);
+  progressOverall.appendChild(ov);
+
+  for (const a of acts) {
+    const pct = activityProgress(a);
+    const row = document.createElement('div');
+    row.className = 'bar-row';
+    const label = document.createElement('div');
+    label.className = 'bar-label';
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = a.name;
+    const pctSpan = document.createElement('span');
+    pctSpan.className = 'bar-pct';
+    pctSpan.textContent = pct === 0 ? 'Sin iniciar' : `${pct}%`;
+    label.appendChild(nameSpan);
+    label.appendChild(pctSpan);
+    const track = document.createElement('div');
+    track.className = 'bar-track';
+    const fill = document.createElement('div');
+    fill.className = 'bar-fill' + (pct >= 100 ? ' done' : pct === 0 ? ' none' : '');
+    fill.style.width = Math.max(pct, 2) + '%';
+    track.appendChild(fill);
+    row.appendChild(label);
+    row.appendChild(track);
+    progressChart.appendChild(row);
+  }
+}
+
 // Definicion de pestañas: etiqueta, permiso que las habilita, y carga de datos al abrir.
 // Cada pestaña corresponde a una OPCION de menu (option_de = id de la pestaña). Su
 // visibilidad la decide permission_option (session.visibleOptions); las acciones de adentro
@@ -951,15 +1133,19 @@ function startEditPerson(p) {
 // "sub" = subsistema dueño de la pestaña: en la ventana de un subsistema solo se
 // muestran SUS opciones (aunque el perfil tenga opciones de otros subsistemas).
 const TABS = [
-  { id: 'userMgmtBox',    label: 'Mantenimiento de usuarios',   load: loadUserMgmt,    sub: 'security' },
-  { id: 'personMgmtBox',  label: 'Mantenimiento de personas',   load: loadPersonData,  sub: 'security' },
-  { id: 'profileBox',     label: 'Mantenimiento de perfiles',   load: loadProfileCrud, sub: 'security' },
-  { id: 'manageBox',      label: 'Asignar perfiles a usuarios', load: loadManageData,  sub: 'security' },
-  { id: 'permBox',        label: 'Asignar permisos',            load: loadPermData,    sub: 'security' },
-  { id: 'auditBox',       label: 'Auditoría',                   load: loadAuditData,   sub: 'security' },
-  { id: 'proyectMgmtBox', label: 'Mantenimiento de proyectos',  load: loadProyectData, sub: 'proyectos' },
-  { id: 'activityMgmtBox',label: 'Gestión de actividades',      load: loadActivityData,sub: 'proyectos' },
-  { id: 'myActivitiesBox',label: 'Mis actividades',             load: loadMyActivities,sub: 'proyectos' }
+  { id: 'userMgmtBox',     label: 'Mantenimiento de usuarios',   load: loadUserMgmt,      sub: 'security' },
+  { id: 'personMgmtBox',   label: 'Mantenimiento de personas',   load: loadPersonData,    sub: 'security' },
+  { id: 'profileBox',      label: 'Mantenimiento de perfiles',   load: loadProfileCrud,   sub: 'security' },
+  { id: 'manageBox',       label: 'Asignar perfiles a usuarios', load: loadManageData,    sub: 'security' },
+  { id: 'permBox',         label: 'Asignar permisos',            load: loadPermData,      sub: 'security' },
+  { id: 'auditBox',        label: 'Auditoría',                   load: loadAuditData,     sub: 'security' },
+  { id: 'proyectMgmtBox',  label: 'Mantenimiento de proyectos',  load: loadProyectData,   sub: 'proyectos' },
+  { id: 'activityMgmtBox', label: 'Gestión de actividades',      load: loadActivityData,  sub: 'proyectos' },
+  { id: 'notifyBox',       label: 'Notificar al equipo',         load: loadNotifyData,    sub: 'proyectos' },
+  { id: 'proyectStatusBox',label: 'Proyectos activos/culminados',load: loadProyectStatus, sub: 'proyectos' },
+  { id: 'progressBox',     label: 'Gráficas de avance',          load: loadProgress,      sub: 'proyectos' },
+  { id: 'myActivitiesBox', label: 'Mis actividades',             load: loadMyActivities,  sub: 'proyectos' },
+  { id: 'myNotifBox',      label: 'Mis notificaciones',          load: loadMyNotif,       sub: 'proyectos' }
 ];
 
 let activeTabId = null;
@@ -1334,6 +1520,29 @@ $('#btnCancelMyReport').addEventListener('click', () => {
   myCurrentActivity = null;
   showMyReportMsg('');
 });
+
+// ---- Notificar al equipo (CU-09, líder) ----
+formNotify.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const proyect_id = Number(notifyProyectSelect.value);
+  const message = new FormData(formNotify).get('message');
+  const { ok, data } = await toProcess('Notification', 'sendNotification', { proyect_id, message }, 'proyectos');
+  if (ok) {
+    formNotify.reset();
+    showNotifyMsg('Notificación enviada al equipo.', true);
+    refreshNotifyList();
+  } else if (data.errors && data.errors.length) {
+    showNotifyMsg('• ' + data.errors.join('\n• '), false);
+  } else {
+    showNotifyMsg(data.msg || 'Error.', false);
+  }
+});
+notifyProyectSelect.addEventListener('change', refreshNotifyList);
+
+// ---- Reportes de proyectos (CU-14 / CU-15, líder) ----
+proyectStatusFilter.addEventListener('change', refreshProyectStatusList);
+$('#btnLoadProgress').addEventListener('click', renderProgress);
+progressProyectSelect.addEventListener('change', renderProgress);
 
 // ---- Cascada de "Asignar permisos" ----
 // Cambiar de perfil recarga métodos y opciones (con el nuevo estado granted).

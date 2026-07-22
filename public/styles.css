@@ -449,6 +449,98 @@ button[type="submit"]:hover,
   color: #8a8d91;
 }
 
+/* ---- Gráficas de avance (CU-14): barras horizontales en CSS puro ---- */
+.chart {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.bar-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bar-label {
+  font-size: .82rem;
+  color: #e4e6eb;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.bar-label .bar-pct {
+  color: #b0b3b8;
+  font-weight: 700;
+}
+
+.bar-track {
+  height: 18px;
+  background: #3a3b3c;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: #2d88ff;
+  transition: width .3s ease;
+}
+
+.bar-fill.done {
+  background: #22c55e;
+}
+
+.bar-fill.none {
+  background: #4e4f50;
+}
+
+/* Resumen global del proyecto (círculo con el %). */
+.overall {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  background: #1e1f20;
+  border: 1px solid #3e4042;
+  border-radius: 10px;
+  margin-bottom: 6px;
+}
+
+.overall-num {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #4ade80;
+  min-width: 72px;
+  text-align: center;
+}
+
+.overall-txt {
+  font-size: .85rem;
+  color: #b0b3b8;
+}
+
+/* ---- Notificaciones (CU-09): tarjetas de mensaje ---- */
+.notif-item {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.notif-meta {
+  font-size: .72rem;
+  color: #8a8d91;
+}
+
+.notif-body {
+  font-size: .9rem;
+  color: #e4e6eb;
+  word-break: break-word;
+}
+
 /* ---- Ventana con pestañas verticales ---- */
 .workspace {
   display: flex;

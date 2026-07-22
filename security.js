@@ -383,6 +383,26 @@ const businessMethods = {
 
             return { id: rows[0].id, percentage: numPercentage, completed };
         });
+    },
+
+    // CU-09: el líder notifica a su equipo (los miembros del proyecto). El emisor NO viene
+    // del cliente: se toma de la sesión (evita suplantar a otro). Valida el mensaje y que
+    // el proyecto exista.
+    'proyectos.Notification.sendNotification': async (ctx) => {
+        const { proyect_id, message } = ctx.params || {};
+        const cleanMessage = (message || '').trim();
+        const errors = [];
+        if (!proyect_id) errors.push('El proyecto es obligatorio.');
+        if (cleanMessage.length < 5) errors.push('El mensaje debe tener al menos 5 caracteres.');
+        if (errors.length) throw new AppError(400, 'No se pudo enviar la notificación.', errors);
+
+        const proyect = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'getProyect'), [proyect_id]);
+        if (!proyect.length) throw new AppError(404, 'El proyecto no existe.');
+
+        const sender_user_id = ctx.session && ctx.session.user_id;
+        const rows = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'sendNotification'),
+            [proyect_id, sender_user_id, cleanMessage]);
+        return { id: rows[0].id };
     }
     // 👉 Aqui viviran mas adelante insertNotification (hoja de tiempo)...
 };

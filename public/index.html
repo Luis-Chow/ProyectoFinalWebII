@@ -344,6 +344,61 @@
             </div>
           </section>
 
+          <!-- Notificar al equipo (CU-09, líder): envía un aviso a los miembros de un proyecto. -->
+          <section id="notifyBox" class="tabpanel hidden">
+            <h2>Notificar al equipo</h2>
+            <form id="formNotify" class="form">
+              <label>Proyecto
+                <select id="notifyProyectSelect"></select>
+              </label>
+              <label>Mensaje
+                <textarea name="message" rows="3" maxlength="500" required placeholder="Escribe el aviso para el equipo del proyecto…"></textarea>
+              </label>
+              <button type="submit">Enviar notificación</button>
+            </form>
+            <p id="notifyMsg" class="msg"></p>
+            <h3 class="subhead">Notificaciones enviadas</h3>
+            <div id="notifyList" class="list"></div>
+          </section>
+
+          <!-- Mis notificaciones (empleado): avisos de los proyectos donde participa. -->
+          <section id="myNotifBox" class="tabpanel hidden">
+            <h2>Mis notificaciones</h2>
+            <p class="hint">Avisos que tu líder ha enviado a los equipos de tus proyectos.</p>
+            <p id="myNotifMsg" class="msg"></p>
+            <div id="myNotifList" class="list"></div>
+          </section>
+
+          <!-- Proyectos activos/culminados (CU-15, líder): listado agrupado por estado. -->
+          <section id="proyectStatusBox" class="tabpanel hidden">
+            <h2>Proyectos activos / culminados</h2>
+            <div class="cascade">
+              <label>Mostrar
+                <select id="proyectStatusFilter">
+                  <option value="all">Todos</option>
+                  <option value="1">Solo activos</option>
+                  <option value="3">Solo culminados</option>
+                </select>
+              </label>
+            </div>
+            <p id="proyectStatusMsg" class="msg"></p>
+            <div id="proyectStatusList" class="list"></div>
+          </section>
+
+          <!-- Gráficas de avance (CU-14, líder): barras del % por actividad de un proyecto. -->
+          <section id="progressBox" class="tabpanel hidden">
+            <h2>Gráficas de avance</h2>
+            <div class="cascade">
+              <label>Proyecto
+                <select id="progressProyectSelect"></select>
+              </label>
+              <button id="btnLoadProgress" type="button">Ver avance</button>
+            </div>
+            <p id="progressMsg" class="msg"></p>
+            <div id="progressOverall"></div>
+            <div id="progressChart" class="chart"></div>
+          </section>
+
           <!-- Mensaje cuando el perfil activo no tiene acciones en este subsistema. -->
           <p id="noActions" class="hint hidden">Este perfil no tiene acciones disponibles en este subsistema.</p>
         </div>

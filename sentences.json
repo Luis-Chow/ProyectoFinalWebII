@@ -62,10 +62,15 @@
     "insertReport": "INSERT INTO report (activity_id, person_id, percentage, description, completed) VALUES ($1, $2, $3, $4, $5) RETURNING id",
     "listReports": "SELECT r.id, r.percentage, r.description, r.completed, to_char(r.created_at, 'DD/MM/YYYY HH24:MI') AS created_at, pe.person_na, pe.person_ln FROM report r INNER JOIN person pe ON pe.person_id = r.person_id WHERE r.activity_id = $1 ORDER BY r.created_at DESC",
     "updateActivityStatus": "UPDATE activity SET status_id = $2 WHERE id = $1",
-    "getActivity": "SELECT a.*, p.name AS proyect_name FROM activity a INNER JOIN proyect p ON p.id = a.proyect_id WHERE a.id = $1"
+    "getActivity": "SELECT a.*, p.name AS proyect_name FROM activity a INNER JOIN proyect p ON p.id = a.proyect_id WHERE a.id = $1",
+
+    "createTeamNotification": "CREATE TABLE IF NOT EXISTS team_notification (id SERIAL PRIMARY KEY, proyect_id INT NOT NULL REFERENCES proyect(id) ON DELETE CASCADE, sender_user_id INT NOT NULL REFERENCES \"user\"(user_id), message TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+    "sendNotification": "INSERT INTO team_notification (proyect_id, sender_user_id, message) VALUES ($1, $2, $3) RETURNING id",
+    "listProyectNotifications": "SELECT tn.id, tn.message, to_char(tn.created_at, 'DD/MM/YYYY HH24:MI') AS created_at, COALESCE(pe.person_na || ' ' || pe.person_ln, u.user_na) AS sender FROM team_notification tn INNER JOIN \"user\" u ON u.user_id = tn.sender_user_id LEFT JOIN person_user pu ON pu.user_id = tn.sender_user_id LEFT JOIN person pe ON pe.person_id = pu.person_id WHERE tn.proyect_id = $1 ORDER BY tn.id DESC",
+    "getMyNotifications": "SELECT tn.id, tn.message, to_char(tn.created_at, 'DD/MM/YYYY HH24:MI') AS created_at, p.name AS proyect_name, COALESCE(pe.person_na || ' ' || pe.person_ln, u.user_na) AS sender FROM team_notification tn INNER JOIN proyect p ON p.id = tn.proyect_id INNER JOIN \"user\" u ON u.user_id = tn.sender_user_id LEFT JOIN person_user pu ON pu.user_id = tn.sender_user_id LEFT JOIN person pe ON pe.person_id = pu.person_id WHERE tn.proyect_id IN (SELECT pr.proyect_id FROM proyect_role pr INNER JOIN proyect_role_person prp ON prp.proyect_role_id = pr.id WHERE prp.person_id = $1 UNION SELECT a.proyect_id FROM activity a INNER JOIN activity_assignment aa ON aa.activity_id = a.id WHERE aa.person_id = $1) ORDER BY tn.id DESC"
   },
   "model": {
-    "dropAll": "DROP TABLE IF EXISTS report, activity_assignment, activity, proyect_role_person, proyect_role, proyect, person_user, person, charge, projects, project_members, audit, permission_method, permission_option, user_profile, method, option, object, sub_system, subsystem, \"user\", users, profile, status CASCADE",
+    "dropAll": "DROP TABLE IF EXISTS team_notification, report, activity_assignment, activity, proyect_role_person, proyect_role, proyect, person_user, person, charge, projects, project_members, audit, permission_method, permission_option, user_profile, method, option, object, sub_system, subsystem, \"user\", users, profile, status CASCADE",
 
     "createStatus": "CREATE TABLE IF NOT EXISTS status (status_id SERIAL PRIMARY KEY, status_de VARCHAR(50) NOT NULL)",
     "createProfile": "CREATE TABLE IF NOT EXISTS profile (profile_id SERIAL PRIMARY KEY, profile_de VARCHAR(50) NOT NULL)",
@@ -112,6 +117,7 @@
     "seedObjectProyect": "INSERT INTO object (object_id, object_de, sub_system_id) VALUES (6, 'Proyect', 2) ON CONFLICT (object_id) DO NOTHING",
     "seedObjectPerson": "INSERT INTO object (object_id, object_de, sub_system_id) VALUES (7, 'Person', 1) ON CONFLICT (object_id) DO NOTHING",
     "seedObjectActivity": "INSERT INTO object (object_id, object_de, sub_system_id) VALUES (8, 'Activity', 2) ON CONFLICT (object_id) DO NOTHING",
+    "seedObjectNotification": "INSERT INTO object (object_id, object_de, sub_system_id) VALUES (9, 'Notification', 2) ON CONFLICT (object_id) DO NOTHING",
 
     "seedMethodListUsers": "INSERT INTO method (method_id, method_de, object_id) VALUES (1, 'listUsers', 1) ON CONFLICT (method_id) DO NOTHING",
     "seedMethodInsertUser": "INSERT INTO method (method_id, method_de, object_id) VALUES (2, 'insertUser', 1) ON CONFLICT (method_id) DO NOTHING",
@@ -152,6 +158,9 @@
     "seedMethodGetMyActivities": "INSERT INTO method (method_id, method_de, object_id) VALUES (37, 'getMyActivities', 8) ON CONFLICT (method_id) DO NOTHING",
     "seedMethodInsertReport": "INSERT INTO method (method_id, method_de, object_id) VALUES (38, 'insertReport', 8) ON CONFLICT (method_id) DO NOTHING",
     "seedMethodListReports": "INSERT INTO method (method_id, method_de, object_id) VALUES (39, 'listReports', 8) ON CONFLICT (method_id) DO NOTHING",
+    "seedMethodSendNotification": "INSERT INTO method (method_id, method_de, object_id) VALUES (40, 'sendNotification', 9) ON CONFLICT (method_id) DO NOTHING",
+    "seedMethodListProyectNotifications": "INSERT INTO method (method_id, method_de, object_id) VALUES (41, 'listProyectNotifications', 9) ON CONFLICT (method_id) DO NOTHING",
+    "seedMethodGetMyNotifications": "INSERT INTO method (method_id, method_de, object_id) VALUES (42, 'getMyNotifications', 9) ON CONFLICT (method_id) DO NOTHING",
 
     "seedPermAdminListUsers": "INSERT INTO permission_method (profile_id, method_id) VALUES (1, 1) ON CONFLICT (profile_id, method_id) DO NOTHING",
     "seedPermAdminInsertUser": "INSERT INTO permission_method (profile_id, method_id) VALUES (1, 2) ON CONFLICT (profile_id, method_id) DO NOTHING",
@@ -187,6 +196,10 @@
     "seedOptionPersonas": "INSERT INTO option (option_id, option_de, sub_system_id) VALUES (7, 'personMgmtBox', 1) ON CONFLICT (option_id) DO NOTHING",
     "seedOptionActividades": "INSERT INTO option (option_id, option_de, sub_system_id) VALUES (8, 'activityMgmtBox', 2) ON CONFLICT (option_id) DO NOTHING",
     "seedOptionMisActividades": "INSERT INTO option (option_id, option_de, sub_system_id) VALUES (9, 'myActivitiesBox', 2) ON CONFLICT (option_id) DO NOTHING",
+    "seedOptionNotificar": "INSERT INTO option (option_id, option_de, sub_system_id) VALUES (10, 'notifyBox', 2) ON CONFLICT (option_id) DO NOTHING",
+    "seedOptionMisNotif": "INSERT INTO option (option_id, option_de, sub_system_id) VALUES (11, 'myNotifBox', 2) ON CONFLICT (option_id) DO NOTHING",
+    "seedOptionProyectStatus": "INSERT INTO option (option_id, option_de, sub_system_id) VALUES (12, 'proyectStatusBox', 2) ON CONFLICT (option_id) DO NOTHING",
+    "seedOptionProgress": "INSERT INTO option (option_id, option_de, sub_system_id) VALUES (13, 'progressBox', 2) ON CONFLICT (option_id) DO NOTHING",
     "seedPermOptAdminUsuarios": "INSERT INTO permission_option (profile_id, option_id) VALUES (1, 1) ON CONFLICT (profile_id, option_id) DO NOTHING",
     "seedPermOptAdminPerfiles": "INSERT INTO permission_option (profile_id, option_id) VALUES (1, 2) ON CONFLICT (profile_id, option_id) DO NOTHING",
     "seedPermOptAdminAsignarPerfiles": "INSERT INTO permission_option (profile_id, option_id) VALUES (1, 3) ON CONFLICT (profile_id, option_id) DO NOTHING",
@@ -208,9 +221,16 @@
     "seedPermLiderListReports": "INSERT INTO permission_method (profile_id, method_id) VALUES (3, 39) ON CONFLICT (profile_id, method_id) DO NOTHING",
     "seedPermEmpleadoGetMyActivities": "INSERT INTO permission_method (profile_id, method_id) VALUES (2, 37) ON CONFLICT (profile_id, method_id) DO NOTHING",
     "seedPermEmpleadoInsertReport": "INSERT INTO permission_method (profile_id, method_id) VALUES (2, 38) ON CONFLICT (profile_id, method_id) DO NOTHING",
+    "seedPermLiderSendNotification": "INSERT INTO permission_method (profile_id, method_id) VALUES (3, 40) ON CONFLICT (profile_id, method_id) DO NOTHING",
+    "seedPermLiderListProyectNotifications": "INSERT INTO permission_method (profile_id, method_id) VALUES (3, 41) ON CONFLICT (profile_id, method_id) DO NOTHING",
+    "seedPermEmpleadoGetMyNotifications": "INSERT INTO permission_method (profile_id, method_id) VALUES (2, 42) ON CONFLICT (profile_id, method_id) DO NOTHING",
     "seedPermOptLiderProyectos": "INSERT INTO permission_option (profile_id, option_id) VALUES (3, 6) ON CONFLICT (profile_id, option_id) DO NOTHING",
     "seedPermOptLiderActividades": "INSERT INTO permission_option (profile_id, option_id) VALUES (3, 8) ON CONFLICT (profile_id, option_id) DO NOTHING",
     "seedPermOptEmpleadoMisActividades": "INSERT INTO permission_option (profile_id, option_id) VALUES (2, 9) ON CONFLICT (profile_id, option_id) DO NOTHING",
+    "seedPermOptLiderNotificar": "INSERT INTO permission_option (profile_id, option_id) VALUES (3, 10) ON CONFLICT (profile_id, option_id) DO NOTHING",
+    "seedPermOptEmpleadoMisNotif": "INSERT INTO permission_option (profile_id, option_id) VALUES (2, 11) ON CONFLICT (profile_id, option_id) DO NOTHING",
+    "seedPermOptLiderProyectStatus": "INSERT INTO permission_option (profile_id, option_id) VALUES (3, 12) ON CONFLICT (profile_id, option_id) DO NOTHING",
+    "seedPermOptLiderProgress": "INSERT INTO permission_option (profile_id, option_id) VALUES (3, 13) ON CONFLICT (profile_id, option_id) DO NOTHING",
 
     "seedUserAdmin": "INSERT INTO \"user\" (user_na, user_pw, status_id) VALUES ('admin1', 'Admin123', 1) ON CONFLICT (user_na) DO NOTHING",
     "seedUserEmpleado": "INSERT INTO \"user\" (user_na, user_pw, status_id) VALUES ('empleado1', 'Empleado123', 1) ON CONFLICT (user_na) DO NOTHING",
