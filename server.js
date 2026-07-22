@@ -82,10 +82,13 @@ async function audit(ses, action, description) {
 
 // Arma la respuesta de sesion: agrega los permisos (no se guardan en la cookie).
 // visibleOptions = menus que el perfil puede ver (permission_option) -> manejan las pestañas.
-// Todo sale de la cache de Security: aqui no se toca la BD.
+// person_id = la persona (nomina) vinculada a esta cuenta, si tiene; el empleado la usa para
+// consultar SUS actividades y reportar avance sin depender del listado de personas (admin).
 async function withPermissions(data) {
+    const personRow = await global.dbc.exeQuery(global.dbc.getSentence('security', 'getPersonIdByUser'), [data.user_id]);
     return {
         ...data,
+        person_id: personRow.length ? personRow[0].person_id : null,
         canRegister: global.sec.getPermissionMethod(REGISTER_J, data.profile_id),
         canManageUsers: global.sec.getPermissionMethod(MANAGE_USERS_J, data.profile_id),
         visibleOptions: global.sec.getVisibleOptions(data.profile_id)
@@ -336,6 +339,7 @@ app.post('/toProcess', async (req, res) => {
             ['model', 'seedOptionProyectos'],
             ['model', 'seedOptionPersonas'],
             ['model', 'seedOptionActividades'],
+            ['model', 'seedOptionMisActividades'],
             ['model', 'seedPermAdminListUsers'],
             ['model', 'seedPermAdminInsertUser'],
             ['model', 'seedPermAdminSetUserStatus'],
@@ -383,6 +387,7 @@ app.post('/toProcess', async (req, res) => {
             ['model', 'seedPermEmpleadoInsertReport'],
             ['model', 'seedPermOptLiderProyectos'],
             ['model', 'seedPermOptLiderActividades'],
+            ['model', 'seedPermOptEmpleadoMisActividades'],
             ['model', 'seedUserAdmin'],
             ['model', 'seedUserEmpleado'],
             ['model', 'seedUserProfileAdmin'],

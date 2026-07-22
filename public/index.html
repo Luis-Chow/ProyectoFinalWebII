@@ -309,27 +309,13 @@
               <p id="assignMsg" class="msg"></p>
             </div>
 
-            <!-- Bloque de reportes: aparece al pulsar "Reportes" en una actividad -->
+            <!-- Bloque de reportes: aparece al pulsar "Reportes" en una actividad.
+                 Solo lectura para el líder (ver la hoja de tiempo del equipo); quien
+                 REGISTRA el avance es el empleado, en su pestaña "Mis actividades". -->
             <div id="activityReportBlock" class="hidden">
               <h3 class="subhead" id="activityReportTitle">Reportes de avance</h3>
-              
-              <!-- Formulario para nuevo reporte -->
-              <form id="formReport" class="form">
-                <label>Porcentaje de avance (50% - 100%)
-                  <input type="number" name="report_percentage" min="50" max="100" required>
-                </label>
-                <small class="hint">Al llegar al 100% la actividad se marcará como completada automáticamente.</small>
-                <label>Descripción de lo realizado
-                  <textarea name="report_description" rows="4" maxlength="1000" required placeholder="Explica qué hiciste, qué problemas encontraste, etc."></textarea>
-                </label>
-                <button type="submit">Registrar avance</button>
-              </form>
               <p id="reportMsg" class="msg"></p>
-
-              <!-- Lista de reportes de la actividad -->
-              <h4 class="subhead">Historial de reportes</h4>
               <div id="reportList" class="list"></div>
-              
               <button id="btnCloseReports" type="button" class="secondary">Cerrar</button>
             </div>
           </section>

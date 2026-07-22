@@ -313,7 +313,6 @@ const businessMethods = {
             global.dbc.getSentence('proyectos', 'insertActivity'),
             [proyect_id, cleanName, cleanDescription, numHours]
         );
-        console.log('Actividad creada:', rows[0]);
         return { id: rows[0].id, name: cleanName };
     },
 
@@ -331,19 +330,14 @@ const businessMethods = {
         );
         if (!activity.length) throw new AppError(404, 'La actividad no existe.');
 
-        try {
-            await global.dbc.exeQuery(
-                global.dbc.getSentence('proyectos', 'assignActivity'),
-                [activity_id, person_id]
-            );
-            console.log('Persona asignada a actividad:', { activity_id, person_id });
-            return { assigned: true };
-        } catch (err) {
-            if (err.code === '23505') {
-                throw new AppError(409, 'Esta persona ya está asignada a la actividad.');
-            }
-            throw err;
-        }
+        // ON CONFLICT DO NOTHING RETURNING: si la persona ya estaba asignada no devuelve
+        // fila -> avisamos con 409 en vez de simular un alta que no ocurrió.
+        const inserted = await global.dbc.exeQuery(
+            global.dbc.getSentence('proyectos', 'assignActivity'),
+            [activity_id, person_id]
+        );
+        if (!inserted.length) throw new AppError(409, 'Esta persona ya está asignada a la actividad.');
+        return { assigned: true };
     },
 
     // CU-11: insertar reporte de avance (50-100%)
@@ -385,10 +379,8 @@ const businessMethods = {
                     global.dbc.getSentence('proyectos', 'updateActivityStatus'),
                     [activity_id, STATUS_CULMINADO]
                 );
-                console.log('Actividad culminada:', activity_id);
             }
 
-            console.log('Reporte creado:', rows[0]);
             return { id: rows[0].id, percentage: numPercentage, completed };
         });
     }

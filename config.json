@@ -6,7 +6,7 @@
     "host": "localhost",
     "database": "web2_session",
     "user": "postgres",
-    "password": "chakakugo7458",
+    "password": "9422",
     "port": 5432,
     "ssl": false,
     "max": 20,
