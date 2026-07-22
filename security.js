@@ -31,7 +31,7 @@ const businessMethods = {
     'security.User.insertUser': async (ctx) => {
         const { user_na, user_pw } = ctx.params || {};
 
-        // 1) Validacion (antes vivia dentro del endpoint /register).
+        // 1) Validacion.
         const errors = [];
         if (!user_na || user_na.length < 3) errors.push('El usuario debe tener al menos 3 caracteres.');
         if (/\s/.test(user_na || '')) errors.push('El usuario no debe contener espacios.');
@@ -424,10 +424,9 @@ const businessMethods = {
             [proyect_id, sender_user_id, cleanMessage]);
         return { id: rows[0].id };
     }
-    // 👉 Aqui viviran mas adelante insertNotification (hoja de tiempo)...
 };
 
-// Security_Object de la pizarra: cachea los permisos de la BD en Maps.
+// Cachea los permisos de la BD en Maps para resolverlos sin volver a consultar.
 const Security = class {
     constructor() {
         this.permissionMethodMap = new Map();

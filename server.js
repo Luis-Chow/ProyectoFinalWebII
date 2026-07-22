@@ -25,13 +25,12 @@ const REGISTER_J = { subsystem: 'security', objectName: 'User', methodName: 'ins
 const MANAGE_USERS_J = { subsystem: 'security', objectName: 'User', methodName: 'setUserStatus' };
 
 // Subsistemas a los que el perfil activo tiene acceso (al menos un metodo u opcion permitido).
-// Es la "subsystem list" que la pizarra entrega tras el login.
 async function getSubsystems(profile_id) {
     return await global.dbc.exeQuery(global.dbc.getSentence('security', 'listAccessibleSubsystems'), [profile_id]);
 }
 
-// Auditoria centralizada de /toProcess: que metodo deja que accion en la tabla audit.
-// (accion sigue el diseño de la pizarra 4: insert | delete | update.)
+// Auditoria centralizada de /toProcess: que metodo deja que accion en la tabla audit
+// (insert | update | delete).
 const AUDIT_ACTIONS = {
     insertUser: 'insert',
     addUserProfile: 'insert',
