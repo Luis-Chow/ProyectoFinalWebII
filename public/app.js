@@ -61,6 +61,10 @@ const personList = $('#personList');
 
 // ---- Actividades ----
 const formActivity = $('#formActivity');
+const activityIdField = $('#activityIdField');
+const activityFormTitle = $('#activityFormTitle');
+const btnSaveActivity = $('#btnSaveActivity');
+const btnCancelActivity = $('#btnCancelActivity');
 const activityProyectSelect = $('#activityProyectSelect');
 const activityMsg = $('#activityMsg');
 const activityFilterProyect = $('#activityFilterProyect');
@@ -69,8 +73,11 @@ const activityAssignBlock = $('#activityAssignBlock');
 const activityAssignTitle = $('#activityAssignTitle');
 const activityPersonSelect = $('#activityPersonSelect');
 const assignMsg = $('#assignMsg');
+const assigneeList = $('#assigneeList');
 const activityReportBlock = $('#activityReportBlock');
 const activityReportTitle = $('#activityReportTitle');
+const formLeaderReport = $('#formLeaderReport');
+const leaderReportPerson = $('#leaderReportPerson');
 const reportMsg = $('#reportMsg');
 const reportList = $('#reportList');
 
@@ -561,7 +568,7 @@ async function loadActivityData() {
   currentActivity = null;
   activityAssignBlock.classList.add('hidden');
   activityReportBlock.classList.add('hidden');
-  formActivity.reset();
+  resetActivityForm();
 
   // Cargar proyectos en los selectores
   const proyects = await toProcess('Proyect', 'listProyects', [], 'proyectos');
@@ -633,6 +640,7 @@ async function refreshActivityList() {
     actions.appendChild(badge);
 
     if (a.status_id === STATUS_ACTIVO) {
+      actions.appendChild(miniButton('Editar', () => startEditActivity(a)));
       actions.appendChild(miniButton('Asignar', () => selectActivityForAssign(a)));
     }
     actions.appendChild(miniButton('Reportes', () => selectActivityForReports(a)));
@@ -643,20 +651,87 @@ async function refreshActivityList() {
   }
 }
 
+// Deja el formulario en modo "crear".
+function resetActivityForm() {
+  formActivity.reset();
+  activityIdField.value = '';
+  activityFormTitle.textContent = 'Crear actividad';
+  btnSaveActivity.textContent = 'Crear actividad';
+  btnCancelActivity.classList.add('hidden');
+  activityProyectSelect.disabled = false;
+}
+
+// Carga una actividad en el formulario para editarla (mismo form, modo edición).
+function startEditActivity(a) {
+  activityIdField.value = a.id;
+  activityProyectSelect.value = String(a.proyect_id);
+  activityProyectSelect.disabled = true;   // la actividad no cambia de proyecto
+  formActivity.elements.activity_name.value = a.name;
+  formActivity.elements.activity_description.value = a.description || '';
+  formActivity.elements.activity_hours.value = a.hours;
+  activityFormTitle.textContent = `Editar «${a.name}»`;
+  btnSaveActivity.textContent = 'Guardar cambios';
+  btnCancelActivity.classList.remove('hidden');
+  showActivityMsg('');
+  const box = activityList.closest('.tab-content');
+  if (box && box.scrollTo) box.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 function selectActivityForAssign(a) {
   currentActivity = a;
-  activityAssignTitle.textContent = `Asignar persona a «${a.name}»`;
+  activityAssignTitle.textContent = `Asignar personas a «${a.name}»`;
   activityAssignBlock.classList.remove('hidden');
   activityReportBlock.classList.add('hidden');
   showAssignMsg('');
+  refreshAssigneeList();
 }
 
-function selectActivityForReports(a) {
+// Lista las personas ya asignadas a la actividad actual, con opción de quitarlas.
+async function refreshAssigneeList() {
+  assigneeList.innerHTML = '';
+  if (!currentActivity) return;
+  const res = await toProcess('Activity', 'listActivityAssignees', [currentActivity.id], 'proyectos');
+  if (!res.ok) return;
+  const rows = res.data.data || [];
+  if (!rows.length) {
+    const empty = document.createElement('p');
+    empty.className = 'hint';
+    empty.textContent = 'Aún no hay personas asignadas a esta actividad.';
+    assigneeList.appendChild(empty);
+    return;
+  }
+  for (const p of rows) {
+    const item = document.createElement('div');
+    item.className = 'item';
+    const left = document.createElement('span');
+    left.textContent = `${p.person_na} ${p.person_ln} · ${p.charge_de}`;
+    const actions = document.createElement('span');
+    actions.className = 'row-actions';
+    actions.appendChild(miniButton('Quitar', async () => {
+      const r = await toProcess('Activity', 'removeActivityAssignee', [p.id], 'proyectos');
+      showAssignMsg(r.ok ? 'Persona quitada de la actividad.' : (r.data.msg || 'Error.'), r.ok);
+      if (r.ok) { refreshAssigneeList(); refreshActivityList(); }
+    }, true));
+    item.appendChild(left);
+    item.appendChild(actions);
+    assigneeList.appendChild(item);
+  }
+}
+
+async function selectActivityForReports(a) {
   currentActivity = a;
   activityReportTitle.textContent = `Reportes de «${a.name}»`;
   activityReportBlock.classList.remove('hidden');
   activityAssignBlock.classList.add('hidden');
   showReportMsg('');
+  formLeaderReport.reset();
+  // El selector de persona para el reporte = las personas asignadas a la actividad.
+  const res = await toProcess('Activity', 'listActivityAssignees', [a.id], 'proyectos');
+  const assignees = res.ok ? res.data.data : [];
+  fillSelect(leaderReportPerson, assignees, 'person_id', (p) => `${p.person_na} ${p.person_ln}`);
+  // Sin personas asignadas no se puede reportar: se oculta el formulario.
+  formLeaderReport.classList.toggle('hidden', assignees.length === 0);
+  if (!assignees.length) showReportMsg('Asigna al menos una persona para poder registrar avances.', false);
   refreshReportList();
 }
 
@@ -1437,16 +1512,18 @@ $('#btnAssignMember').addEventListener('click', async () => {
 formActivity.addEventListener('submit', async (e) => {
   e.preventDefault();
   const fd = new FormData(formActivity);
-  const body = {
-    proyect_id: Number(activityProyectSelect.value),
-    name: fd.get('activity_name').trim(),
-    description: fd.get('activity_description').trim(),
+  const editId = activityIdField.value;
+  const base = {
+    name: (fd.get('activity_name') || '').trim(),
+    description: (fd.get('activity_description') || '').trim(),
     hours: parseInt(fd.get('activity_hours'))
   };
-  const { ok, data } = await toProcess('Activity', 'insertActivity', body, 'proyectos');
+  const method = editId ? 'updateActivity' : 'insertActivity';
+  const body = editId ? { activity_id: Number(editId), ...base } : { proyect_id: Number(activityProyectSelect.value), ...base };
+  const { ok, data } = await toProcess('Activity', method, body, 'proyectos');
   if (ok) {
-    formActivity.reset();
-    showActivityMsg('Actividad creada.', true);
+    resetActivityForm();
+    showActivityMsg(editId ? 'Actividad actualizada.' : 'Actividad creada.', true);
     refreshActivityList();
   } else if (data.errors && data.errors.length) {
     showActivityMsg('• ' + data.errors.join('\n• '), false);
@@ -1454,6 +1531,8 @@ formActivity.addEventListener('submit', async (e) => {
     showActivityMsg(data.msg || 'Error.', false);
   }
 });
+
+$('#btnCancelActivity').addEventListener('click', () => { resetActivityForm(); showActivityMsg(''); });
 
 // ---- Actividades: filtrar por proyecto ----
 $('#btnFilterActivities').addEventListener('click', () => {
@@ -1468,10 +1547,8 @@ $('#btnAssignActivity').addEventListener('click', async () => {
   if (!person_id) { showAssignMsg('Selecciona una persona.', false); return; }
   const { ok, data } = await toProcess('Activity', 'assignActivity', [currentActivity.id, person_id], 'proyectos');
   showAssignMsg(ok ? 'Persona asignada.' : (data.msg || 'Error.'), ok);
-  if (ok) { 
-    activityAssignBlock.classList.add('hidden');
-    refreshActivityList(); 
-  }
+  // El bloque queda abierto para poder asignar MÁS personas; se refresca la lista de asignados.
+  if (ok) { refreshAssigneeList(); refreshActivityList(); }
 });
 
 $('#btnCancelAssign').addEventListener('click', () => {
@@ -1480,8 +1557,32 @@ $('#btnCancelAssign').addEventListener('click', () => {
   showAssignMsg('');
 });
 
-// Nota: el líder NO crea reportes de avance (eso es del empleado, CU-11); aquí solo VE el
-// historial del equipo. La creación de reportes vive en la pestaña "Mis actividades".
+// El líder registra el avance de una persona asignada (CU-11 también lo hace el propio
+// empleado desde "Mis actividades"). Reutiliza insertReport (valida el 50%-100%).
+formLeaderReport.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!currentActivity) return;
+  const person_id = Number(leaderReportPerson.value);
+  if (!person_id) { showReportMsg('Selecciona la persona del avance.', false); return; }
+  const fd = new FormData(formLeaderReport);
+  const body = {
+    activity_id: currentActivity.id,
+    person_id,
+    percentage: parseInt(fd.get('lr_percentage')),
+    description: (fd.get('lr_description') || '').trim()
+  };
+  const { ok, data } = await toProcess('Activity', 'insertReport', body, 'proyectos');
+  if (ok) {
+    formLeaderReport.reset();
+    showReportMsg('Avance registrado.' + (data.data && data.data.completed ? ' ¡Actividad completada!' : ''), true);
+    refreshReportList();
+    refreshActivityList();
+  } else if (data.errors && data.errors.length) {
+    showReportMsg('• ' + data.errors.join('\n• '), false);
+  } else {
+    showReportMsg(data.msg || 'Error.', false);
+  }
+});
 
 $('#btnCloseReports').addEventListener('click', () => {
   activityReportBlock.classList.add('hidden');

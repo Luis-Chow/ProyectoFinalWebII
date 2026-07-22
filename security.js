@@ -316,6 +316,26 @@ const businessMethods = {
         return { id: rows[0].id, name: cleanName };
     },
 
+    // CU-08: editar una actividad (nombre, descripción, horas). Misma validación que al crear.
+    'proyectos.Activity.updateActivity': async (ctx) => {
+        const { activity_id, name, description, hours } = ctx.params || {};
+        if (!activity_id) throw new AppError(400, 'Falta la actividad a editar.');
+        const errors = [];
+        const cleanName = (name || '').trim();
+        const cleanDescription = (description || '').trim();
+        const numHours = parseInt(hours) || 0;
+        if (cleanName.length < 3) errors.push('El nombre de la actividad debe tener al menos 3 caracteres.');
+        if (numHours <= 0) errors.push('Las horas estimadas deben ser mayores a 0.');
+        if (errors.length) throw new AppError(400, 'No se pudo actualizar la actividad.', errors);
+
+        const activity = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'getActivity'), [activity_id]);
+        if (!activity.length) throw new AppError(404, 'La actividad no existe.');
+
+        await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'updateActivity'),
+            [activity_id, cleanName, cleanDescription, numHours]);
+        return { updated: true };
+    },
+
     // CU-09: asignar persona a actividad
     'proyectos.Activity.assignActivity': async (ctx) => {
         const [activity_id, person_id] = ctx.params || [];

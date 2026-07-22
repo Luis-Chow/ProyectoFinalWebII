@@ -265,10 +265,11 @@
           <section id="activityMgmtBox" class="tabpanel hidden">
             <h2>Gestión de actividades</h2>
 
-            <!-- Crear nueva actividad (líder) -->
+            <!-- Crear/editar actividad (líder) -->
             <div id="createActivityBlock">
-              <h3 class="subhead">Crear actividad</h3>
+              <h3 class="subhead" id="activityFormTitle">Crear actividad</h3>
               <form id="formActivity" class="form">
+                <input type="hidden" name="activity_id" id="activityIdField">
                 <label>Proyecto
                   <select id="activityProyectSelect" required></select>
                 </label>
@@ -281,7 +282,10 @@
                 <label>Horas estimadas
                   <input type="number" name="activity_hours" min="1" max="9999" required>
                 </label>
-                <button type="submit">Crear actividad</button>
+                <div class="panel-actions">
+                  <button type="submit" id="btnSaveActivity">Crear actividad</button>
+                  <button type="button" id="btnCancelActivity" class="secondary hidden">Cancelar edición</button>
+                </div>
               </form>
               <p id="activityMsg" class="msg"></p>
             </div>
@@ -296,7 +300,8 @@
             </div>
             <div id="activityList" class="list"></div>
 
-            <!-- Bloque de asignación: aparece al pulsar "Asignar" en una actividad -->
+            <!-- Bloque de asignación: aparece al pulsar "Asignar" en una actividad.
+                 Se pueden asignar VARIAS personas; se listan abajo y se pueden quitar. -->
             <div id="activityAssignBlock" class="hidden">
               <h3 class="subhead" id="activityAssignTitle">Asignar persona</h3>
               <div class="assign-row">
@@ -304,17 +309,31 @@
                   <select id="activityPersonSelect"></select>
                 </label>
                 <button id="btnAssignActivity" type="button">Asignar</button>
-                <button id="btnCancelAssign" type="button" class="secondary">Cancelar</button>
+                <button id="btnCancelAssign" type="button" class="secondary">Cerrar</button>
               </div>
               <p id="assignMsg" class="msg"></p>
+              <div id="assigneeList" class="list"></div>
             </div>
 
             <!-- Bloque de reportes: aparece al pulsar "Reportes" en una actividad.
-                 Solo lectura para el líder (ver la hoja de tiempo del equipo); quien
-                 REGISTRA el avance es el empleado, en su pestaña "Mis actividades". -->
+                 El líder puede registrar el avance de una persona asignada (además del
+                 propio empleado en "Mis actividades") y ve el historial del equipo. -->
             <div id="activityReportBlock" class="hidden">
               <h3 class="subhead" id="activityReportTitle">Reportes de avance</h3>
+              <form id="formLeaderReport" class="form">
+                <label>Persona asignada
+                  <select id="leaderReportPerson"></select>
+                </label>
+                <label>Porcentaje de avance (50% - 100%)
+                  <input type="number" name="lr_percentage" min="50" max="100" required>
+                </label>
+                <label>Descripción de lo realizado
+                  <textarea name="lr_description" rows="3" maxlength="1000" required></textarea>
+                </label>
+                <button type="submit">Registrar avance</button>
+              </form>
               <p id="reportMsg" class="msg"></p>
+              <h4 class="subhead">Historial de reportes</h4>
               <div id="reportList" class="list"></div>
               <button id="btnCloseReports" type="button" class="secondary">Cerrar</button>
             </div>
