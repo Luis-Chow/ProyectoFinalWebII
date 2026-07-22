@@ -287,8 +287,112 @@ const businessMethods = {
         if (!proyect.length) throw new AppError(404, 'El proyecto no existe.');
         await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'setProyectStatus'), [proyect_id, status_id]);
         return { updated: true };
+    },
+
+    // ============ ACTIVITIES ============
+
+    // CU-08: crear una actividad dentro de un proyecto activo.
+    'proyectos.Activity.insertActivity': async (ctx) => {
+        const { proyect_id, name, description, hours } = ctx.params || {};
+        const errors = [];
+        const cleanName = (name || '').trim();
+        const cleanDescription = (description || '').trim();
+        const numHours = parseInt(hours) || 0;
+
+        if (!proyect_id) errors.push('El proyecto es obligatorio.');
+        if (cleanName.length < 3) errors.push('El nombre de la actividad debe tener al menos 3 caracteres.');
+        if (numHours <= 0) errors.push('Las horas estimadas deben ser mayores a 0.');
+
+        if (errors.length) throw new AppError(400, 'No se pudo crear la actividad.', errors);
+
+        // Verificar que el proyecto existe y está activo
+        const proyect = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'getProyect'), [proyect_id]);
+        if (!proyect.length) throw new AppError(404, 'El proyecto no existe.');
+
+        const rows = await global.dbc.exeQuery(
+            global.dbc.getSentence('proyectos', 'insertActivity'),
+            [proyect_id, cleanName, cleanDescription, numHours]
+        );
+        console.log('Actividad creada:', rows[0]);
+        return { id: rows[0].id, name: cleanName };
+    },
+
+    // CU-09: asignar persona a actividad
+    'proyectos.Activity.assignActivity': async (ctx) => {
+        const [activity_id, person_id] = ctx.params || [];
+        if (!activity_id || !person_id) {
+            throw new AppError(400, 'Faltan la actividad o la persona.');
+        }
+
+        // Verificar que la actividad existe
+        const activity = await global.dbc.exeQuery(
+            global.dbc.getSentence('proyectos', 'getActivity'),
+            [activity_id]
+        );
+        if (!activity.length) throw new AppError(404, 'La actividad no existe.');
+
+        try {
+            await global.dbc.exeQuery(
+                global.dbc.getSentence('proyectos', 'assignActivity'),
+                [activity_id, person_id]
+            );
+            console.log('Persona asignada a actividad:', { activity_id, person_id });
+            return { assigned: true };
+        } catch (err) {
+            if (err.code === '23505') {
+                throw new AppError(409, 'Esta persona ya está asignada a la actividad.');
+            }
+            throw err;
+        }
+    },
+
+    // CU-11: insertar reporte de avance (50-100%)
+    'proyectos.Activity.insertReport': async (ctx) => {
+        const { activity_id, person_id, percentage, description } = ctx.params || {};
+        const errors = [];
+        const cleanDescription = (description || '').trim();
+        const numPercentage = parseInt(percentage) || 0;
+
+        if (!activity_id) errors.push('La actividad es obligatoria.');
+        if (!person_id) errors.push('La persona es obligatoria.');
+        if (numPercentage < 50 || numPercentage > 100) {
+            errors.push('El porcentaje debe estar entre 50% y 100%.');
+        }
+        if (!cleanDescription || cleanDescription.length < 10) {
+            errors.push('La descripción debe tener al menos 10 caracteres.');
+        }
+
+        if (errors.length) throw new AppError(400, 'No se pudo registrar el reporte.', errors);
+
+        // Verificar que la actividad existe
+        const activity = await global.dbc.exeQuery(
+            global.dbc.getSentence('proyectos', 'getActivity'),
+            [activity_id]
+        );
+        if (!activity.length) throw new AppError(404, 'La actividad no existe.');
+
+        const STATUS_CULMINADO = 3;
+        const completed = numPercentage >= 100;
+
+        return await ctx.tx(async (q) => {
+            const rows = await q(
+                global.dbc.getSentence('proyectos', 'insertReport'),
+                [activity_id, person_id, numPercentage, cleanDescription, completed]
+            );
+
+            if (completed) {
+                await q(
+                    global.dbc.getSentence('proyectos', 'updateActivityStatus'),
+                    [activity_id, STATUS_CULMINADO]
+                );
+                console.log('Actividad culminada:', activity_id);
+            }
+
+            console.log('Reporte creado:', rows[0]);
+            return { id: rows[0].id, percentage: numPercentage, completed };
+        });
     }
-    // 👉 Aqui viviran mas adelante insertActivity, insertNotification (hoja de tiempo)...
+    // 👉 Aqui viviran mas adelante insertNotification (hoja de tiempo)...
 };
 
 // Security_Object de la pizarra: cachea los permisos de la BD en Maps.

@@ -59,6 +59,29 @@ const personMsg = $('#personMsg');
 const personSearch = $('#personSearch');
 const personList = $('#personList');
 
+// ---- Actividades ----
+const formActivity = $('#formActivity');
+const activityProyectSelect = $('#activityProyectSelect');
+const activityMsg = $('#activityMsg');
+const activityFilterProyect = $('#activityFilterProyect');
+const activityList = $('#activityList');
+const activityAssignBlock = $('#activityAssignBlock');
+const activityAssignTitle = $('#activityAssignTitle');
+const activityPersonSelect = $('#activityPersonSelect');
+const assignMsg = $('#assignMsg');
+const activityReportBlock = $('#activityReportBlock');
+const activityReportTitle = $('#activityReportTitle');
+const formReport = $('#formReport');
+const reportMsg = $('#reportMsg');
+const reportList = $('#reportList');
+
+// ---- Mis actividades (empleado) ----
+const myActivitiesList = $('#myActivitiesList');
+const myReportBlock = $('#myReportBlock');
+const myReportTitle = $('#myReportTitle');
+const formMyReport = $('#formMyReport');
+const myReportMsg = $('#myReportMsg');
+
 // Estado de la sesion en el cliente.
 let currentSession = null;
 let currentProfiles = [];
@@ -86,6 +109,10 @@ const showProfileCrudMsg = msgIn(profileCrudMsg);
 const showProyectMsg = msgIn(proyectMsg);
 const showMemberMsg = msgIn(memberMsg);
 const showPersonMsg = msgIn(personMsg);
+const showActivityMsg = msgIn(activityMsg);
+const showAssignMsg = msgIn(assignMsg);
+const showReportMsg = msgIn(reportMsg);
+const showMyReportMsg = msgIn(myReportMsg);
 
 // Rellena un <select> genérico a partir de filas: value = fila[valueKey], texto = labelFn(fila).
 // Con `placeholder` antepone una opción vacía (para "elige…" o "sin persona").
@@ -506,6 +533,247 @@ async function refreshMemberList() {
   }
 }
 
+// ---- Pestaña "Gestión de actividades" (CU-08/CU-09/CU-11, subsistema proyectos) ----
+let currentActivity = null; // actividad seleccionada para asignar o ver reportes
+
+async function loadActivityData() {
+  showActivityMsg('');
+  showAssignMsg('');
+  showReportMsg('');
+  currentActivity = null;
+  activityAssignBlock.classList.add('hidden');
+  activityReportBlock.classList.add('hidden');
+  formActivity.reset();
+
+  // Cargar proyectos en los selectores
+  const proyects = await toProcess('Proyect', 'listProyects', [], 'proyectos');
+  if (proyects.ok) {
+    const activeProyects = proyects.data.data.filter(p => p.status_id === 1);
+    fillSelect(activityProyectSelect, activeProyects, 'id', (p) => `#${p.id} · ${p.name}`, '— Selecciona un proyecto —');
+    fillSelect(activityFilterProyect, proyects.data.data, 'id', (p) => `#${p.id} · ${p.name}`, '— Todos los proyectos —');
+  }
+
+  // Cargar personas para asignar
+  const persons = await toProcess('Proyect', 'listPersons', [], 'proyectos');
+  if (persons.ok) {
+    fillSelect(activityPersonSelect, persons.data.data, 'person_id',
+      (p) => `${p.person_na} ${p.person_ln} · ${p.charge_de}`, '— Selecciona una persona —');
+  }
+
+  // Mostrar actividades (todas o filtrar si hay proyecto seleccionado)
+  await refreshActivityList();
+}
+
+async function refreshActivityList() {
+  activityList.innerHTML = '';
+  const proyect_id = activityFilterProyect.value;
+  
+  if (!proyect_id) {
+    const empty = document.createElement('p');
+    empty.className = 'hint';
+    empty.textContent = 'Selecciona un proyecto y pulsa "Ver actividades".';
+    activityList.appendChild(empty);
+    return;
+  }
+
+  const res = await toProcess('Activity', 'listActivities', [Number(proyect_id)], 'proyectos');
+  if (!res.ok) {
+    showActivityMsg(res.data.msg || 'Error al listar actividades.', false);
+    return;
+  }
+
+  const rows = res.data.data || [];
+  if (!rows.length) {
+    const empty = document.createElement('p');
+    empty.className = 'hint';
+    empty.textContent = 'Este proyecto no tiene actividades aún.';
+    activityList.appendChild(empty);
+    return;
+  }
+
+  for (const a of rows) {
+    const item = document.createElement('div');
+    item.className = 'item';
+
+    const left = document.createElement('span');
+    left.textContent = `#${a.id} · ${a.name}`;
+    const sub = document.createElement('span');
+    sub.className = 'item-sub';
+    
+    const porcentaje = a.last_percentage ? `${a.last_percentage}%` : 'Sin avance';
+    const completado = a.completed ? ' ✓ Completado' : '';
+    sub.textContent = `${a.hours}h · ${a.assigned_to} · ${porcentaje}${completado} · ${a.status_de}`;
+    left.appendChild(sub);
+
+    const actions = document.createElement('div');
+    actions.className = 'row-actions';
+
+    const STATUS_ACTIVO = 1;
+    const badge = document.createElement('span');
+    badge.className = 'status-badge ' + (a.status_id === STATUS_ACTIVO ? 'on' : 'off');
+    badge.textContent = a.status_de;
+    actions.appendChild(badge);
+
+    if (a.status_id === STATUS_ACTIVO) {
+      actions.appendChild(miniButton('Asignar', () => selectActivityForAssign(a)));
+    }
+    actions.appendChild(miniButton('Reportes', () => selectActivityForReports(a)));
+
+    item.appendChild(left);
+    item.appendChild(actions);
+    activityList.appendChild(item);
+  }
+}
+
+function selectActivityForAssign(a) {
+  currentActivity = a;
+  activityAssignTitle.textContent = `Asignar persona a «${a.name}»`;
+  activityAssignBlock.classList.remove('hidden');
+  activityReportBlock.classList.add('hidden');
+  showAssignMsg('');
+}
+
+function selectActivityForReports(a) {
+  currentActivity = a;
+  activityReportTitle.textContent = `Reportes de «${a.name}»`;
+  activityReportBlock.classList.remove('hidden');
+  activityAssignBlock.classList.add('hidden');
+  showReportMsg('');
+  formReport.reset();
+  refreshReportList();
+}
+
+async function refreshReportList() {
+  reportList.innerHTML = '';
+  if (!currentActivity) return;
+
+  const res = await toProcess('Activity', 'listReports', [currentActivity.id], 'proyectos');
+  if (!res.ok) {
+    showReportMsg(res.data.msg || 'Error al listar reportes.', false);
+    return;
+  }
+
+  const rows = res.data.data || [];
+  if (!rows.length) {
+    const empty = document.createElement('p');
+    empty.className = 'hint';
+    empty.textContent = 'No hay reportes aún para esta actividad.';
+    reportList.appendChild(empty);
+    return;
+  }
+
+  for (const r of rows) {
+    const item = document.createElement('div');
+    item.className = 'item';
+
+    const left = document.createElement('span');
+    const porcentaje = document.createElement('b');
+    porcentaje.textContent = `${r.percentage}%`;
+    left.appendChild(porcentaje);
+    left.append(` · ${r.person_na} ${r.person_ln}`);
+    
+    if (r.completed) {
+      const badge = document.createElement('span');
+      badge.className = 'tag';
+      badge.textContent = 'Completado';
+      left.appendChild(badge);
+    }
+
+    const sub = document.createElement('span');
+    sub.className = 'item-sub';
+    sub.textContent = `${r.created_at} · ${r.description}`;
+    left.appendChild(sub);
+
+    item.appendChild(left);
+    reportList.appendChild(item);
+  }
+}
+
+// ---- Pestaña "Mis actividades" (empleado) ----
+let myCurrentActivity = null;
+
+async function loadMyActivities() {
+  showMyReportMsg('');
+  myReportBlock.classList.add('hidden');
+  myCurrentActivity = null;
+  await refreshMyActivitiesList();
+}
+
+async function refreshMyActivitiesList() {
+  myActivitiesList.innerHTML = '';
+  
+  // Obtener el person_id de la sesión actual
+  const me = await api('/me');
+  if (!me.ok || !me.data.objectSession) return;
+  
+  // Buscar la persona vinculada al usuario
+  const persons = await toProcess('Person', 'listPersons', ['']);
+  if (!persons.ok) return;
+  
+  const myUser = me.data.objectSession.user_na;
+  const myPerson = persons.data.data.find(p => p.linked_user === myUser);
+  
+  if (!myPerson) {
+    const empty = document.createElement('p');
+    empty.className = 'hint';
+    empty.textContent = 'No tienes una persona vinculada a tu cuenta. Contacta al administrador.';
+    myActivitiesList.appendChild(empty);
+    return;
+  }
+
+  const res = await toProcess('Activity', 'getMyActivities', [myPerson.person_id], 'proyectos');
+  if (!res.ok) {
+    showMyReportMsg(res.data.msg || 'Error al listar tus actividades.', false);
+    return;
+  }
+
+  const rows = res.data.data || [];
+  if (!rows.length) {
+    const empty = document.createElement('p');
+    empty.className = 'hint';
+    empty.textContent = 'No tienes actividades asignadas.';
+    myActivitiesList.appendChild(empty);
+    return;
+  }
+
+  for (const a of rows) {
+    const item = document.createElement('div');
+    item.className = 'item';
+
+    const left = document.createElement('span');
+    left.textContent = `#${a.id} · ${a.name}`;
+    const sub = document.createElement('span');
+    sub.className = 'item-sub';
+    sub.textContent = `Proyecto: ${a.proyect_name} · ${a.hours}h`;
+    left.appendChild(sub);
+
+    const actions = document.createElement('div');
+    actions.className = 'row-actions';
+    
+    const STATUS_ACTIVO = 1;
+    const badge = document.createElement('span');
+    badge.className = 'status-badge ' + (a.status_id === STATUS_ACTIVO ? 'on' : 'off');
+    badge.textContent = a.status_id === STATUS_ACTIVO ? 'Activo' : 'Culminado';
+    actions.appendChild(badge);
+
+    if (a.status_id === STATUS_ACTIVO) {
+      actions.appendChild(miniButton('Reportar', () => selectMyActivity(a)));
+    }
+
+    item.appendChild(left);
+    item.appendChild(actions);
+    myActivitiesList.appendChild(item);
+  }
+}
+
+function selectMyActivity(a) {
+  myCurrentActivity = a;
+  myReportTitle.textContent = `Reportar avance en «${a.name}»`;
+  myReportBlock.classList.remove('hidden');
+  formMyReport.reset();
+  showMyReportMsg('');
+}
+
 // ---- Pestaña "Mantenimiento de usuarios" (CU-02) ----
 async function loadUserMgmt() {
   // El formulario de crear cuenta solo se muestra a quien tiene permiso.
@@ -699,7 +967,9 @@ const TABS = [
   { id: 'manageBox',      label: 'Asignar perfiles a usuarios', load: loadManageData,  sub: 'security' },
   { id: 'permBox',        label: 'Asignar permisos',            load: loadPermData,    sub: 'security' },
   { id: 'auditBox',       label: 'Auditoría',                   load: loadAuditData,   sub: 'security' },
-  { id: 'proyectMgmtBox', label: 'Mantenimiento de proyectos',  load: loadProyectData, sub: 'proyectos' }
+  { id: 'proyectMgmtBox', label: 'Mantenimiento de proyectos',  load: loadProyectData, sub: 'proyectos' },
+  { id: 'activityMgmtBox',label: 'Gestión de actividades',      load: loadActivityData,sub: 'proyectos' },
+  { id: 'myActivitiesBox',label: 'Mis actividades',             load: loadMyActivities,sub: 'proyectos' }
 ];
 
 let activeTabId = null;
@@ -985,6 +1255,121 @@ $('#btnAssignMember').addEventListener('click', async () => {
   const { ok, data } = await toProcess('Proyect', 'assignMember', params, 'proyectos');
   showMemberMsg(ok ? 'Miembro asignado.' : (data.msg || 'Error.'), ok);
   if (ok) { refreshMemberList(); refreshProyectList(); }
+});
+
+// ---- Actividades: crear ----
+formActivity.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(formActivity);
+  const body = {
+    proyect_id: Number(activityProyectSelect.value),
+    name: fd.get('activity_name').trim(),
+    description: fd.get('activity_description').trim(),
+    hours: parseInt(fd.get('activity_hours'))
+  };
+  const { ok, data } = await toProcess('Activity', 'insertActivity', body, 'proyectos');
+  if (ok) {
+    formActivity.reset();
+    showActivityMsg('Actividad creada.', true);
+    refreshActivityList();
+  } else if (data.errors && data.errors.length) {
+    showActivityMsg('• ' + data.errors.join('\n• '), false);
+  } else {
+    showActivityMsg(data.msg || 'Error.', false);
+  }
+});
+
+// ---- Actividades: filtrar por proyecto ----
+$('#btnFilterActivities').addEventListener('click', () => {
+  showActivityMsg('');
+  refreshActivityList();
+});
+
+// ---- Actividades: asignar persona ----
+$('#btnAssignActivity').addEventListener('click', async () => {
+  if (!currentActivity) return;
+  const person_id = Number(activityPersonSelect.value);
+  if (!person_id) { showAssignMsg('Selecciona una persona.', false); return; }
+  const { ok, data } = await toProcess('Activity', 'assignActivity', [currentActivity.id, person_id], 'proyectos');
+  showAssignMsg(ok ? 'Persona asignada.' : (data.msg || 'Error.'), ok);
+  if (ok) { 
+    activityAssignBlock.classList.add('hidden');
+    refreshActivityList(); 
+  }
+});
+
+$('#btnCancelAssign').addEventListener('click', () => {
+  activityAssignBlock.classList.add('hidden');
+  currentActivity = null;
+  showAssignMsg('');
+});
+
+// ---- Actividades: reportar avance (líder) ----
+formReport.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!currentActivity) return;
+  const fd = new FormData(formReport);
+  const person_id = Number(activityPersonSelect.value);
+  const body = {
+    activity_id: currentActivity.id,
+    person_id: person_id || currentSession.user_id,
+    percentage: parseInt(fd.get('report_percentage')),
+    description: fd.get('report_description').trim()
+  };
+  const { ok, data } = await toProcess('Activity', 'insertReport', body, 'proyectos');
+  if (ok) {
+    formReport.reset();
+    showReportMsg('Reporte registrado.' + (data.activity_culminated ? ' ¡Actividad completada!' : ''), true);
+    refreshReportList();
+    refreshActivityList();
+  } else if (data.errors && data.errors.length) {
+    showReportMsg('• ' + data.errors.join('\n• '), false);
+  } else {
+    showReportMsg(data.msg || 'Error.', false);
+  }
+});
+
+$('#btnCloseReports').addEventListener('click', () => {
+  activityReportBlock.classList.add('hidden');
+  currentActivity = null;
+  showReportMsg('');
+});
+
+// ---- Mis actividades: reportar avance (empleado) ----
+formMyReport.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!myCurrentActivity) return;
+  
+  const me = await api('/me');
+  if (!me.ok || !me.data.objectSession) return;
+  const persons = await toProcess('Person', 'listPersons', ['']);
+  const myPerson = persons.ok ? persons.data.data.find(p => p.linked_user === me.data.objectSession.user_na) : null;
+  if (!myPerson) { showMyReportMsg('No se encontró tu persona vinculada.', false); return; }
+
+  const fd = new FormData(formMyReport);
+  const body = {
+    activity_id: myCurrentActivity.id,
+    person_id: myPerson.person_id,
+    percentage: parseInt(fd.get('my_report_percentage')),
+    description: fd.get('my_report_description').trim()
+  };
+  const { ok, data } = await toProcess('Activity', 'insertReport', body, 'proyectos');
+  if (ok) {
+    formMyReport.reset();
+    showMyReportMsg('Reporte registrado.' + (data.activity_culminated ? ' ¡Actividad completada!' : ''), true);
+    myReportBlock.classList.add('hidden');
+    refreshMyActivitiesList();
+  } else if (data.errors && data.errors.length) {
+    showMyReportMsg('• ' + data.errors.join('\n• '), false);
+  } else {
+    showMyReportMsg(data.msg || 'Error.', false);
+  }
+});
+
+$('#btnCancelMyReport').addEventListener('click', () => {
+  myReportBlock.classList.add('hidden');
+  myCurrentActivity = null;
+  showMyReportMsg('');
 });
 
 // ---- Cascada de "Asignar permisos" ----

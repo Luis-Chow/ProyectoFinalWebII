@@ -98,16 +98,22 @@ label {
   color: #b0b3b8;
 }
 
-input {
+input, textarea {
   padding: 10px;
   border: 1px solid #3e4042;
   border-radius: 8px;
   font-size: 1rem;
   background: #3a3b3c;
   color: #e4e6eb;
+  font-family: inherit;
 }
 
-input:focus {
+textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+input:focus, textarea:focus {
   outline: none;
   border-color: #2d88ff;
 }
@@ -301,6 +307,12 @@ button[type="submit"]:hover,
   color: #b0b3b8;
 }
 
+/* Badge de completado (verde) */
+.status-badge.completed {
+  background: #1e40af;
+  color: #93c5fd;
+}
+
 /* ---- Buscador y agrupacion en Asignar permisos ---- */
 .search-input {
   width: 100%;
@@ -319,7 +331,8 @@ button[type="submit"]:hover,
 }
 
 /* ---- Mantenimiento de proyectos ---- */
-#createProyectBlock {
+#createProyectBlock,
+#createActivityBlock {
   padding-bottom: 14px;
   margin-bottom: 4px;
   border-bottom: 1px solid #3e4042;
@@ -334,7 +347,10 @@ button[type="submit"]:hover,
 }
 
 #proyectList .item,
-#memberList .item {
+#memberList .item,
+#activityList .item,
+#myActivitiesList .item,
+#reportList .item {
   align-items: center;
 }
 
@@ -550,4 +566,52 @@ select {
 select:focus {
   outline: none;
   border-color: #2d88ff;
+}
+
+/* ---- Actividades: bloque de asignación y reportes ---- */
+#activityAssignBlock,
+#activityReportBlock,
+#myReportBlock {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #3e4042;
+}
+
+#activityAssignBlock h3,
+#activityReportBlock h3,
+#myReportBlock h3 {
+  font-size: .95rem;
+  margin-bottom: 10px;
+  color: #e4e6eb;
+}
+
+#activityAssignBlock .assign-row {
+  margin-bottom: 10px;
+}
+
+#activityReportBlock form,
+#myReportBlock form {
+  margin-bottom: 16px;
+}
+
+#reportList {
+  margin-bottom: 16px;
+}
+
+/* Tag de completado en reportes */
+.tag.completed {
+  background: #1e40af;
+  color: #93c5fd;
+}
+
+/* Porcentaje en items de actividad */
+.percentage-badge {
+  display: inline-block;
+  font-size: .75rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #1e3a5f;
+  color: #93c5fd;
+  margin-left: 6px;
 }

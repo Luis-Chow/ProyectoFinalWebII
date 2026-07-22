@@ -52,7 +52,10 @@ const AUDIT_ACTIONS = {
     insertPerson: 'insert',
     updatePerson: 'update',
     linkPersonUser: 'insert',
-    unlinkPersonUser: 'delete'
+    unlinkPersonUser: 'delete',
+    insertActivity: 'insert',
+    assignActivity: 'insert',
+    insertReport: 'insert'
 };
 
 // Arma una descripcion legible de los params SIN exponer secretos (la contraseña nunca
@@ -258,7 +261,10 @@ app.post('/toProcess', async (req, res) => {
             ['model', 'createPersonUser'],
             ['model', 'createProyect'],
             ['model', 'createProyectRole'],
-            ['model', 'createProyectRolePerson']
+            ['model', 'createProyectRolePerson'],
+            ['proyectos', 'createActivity'],
+            ['proyectos', 'createActivityAssignment'],
+            ['proyectos', 'createReport']
         ];
         for (const [schema, id] of ddl) {
             await global.dbc.exeQuery(global.dbc.getSentence(schema, id));
@@ -282,6 +288,7 @@ app.post('/toProcess', async (req, res) => {
             ['model', 'seedObjectAudit'],
             ['model', 'seedObjectProyect'],
             ['model', 'seedObjectPerson'],
+            ['model', 'seedObjectActivity'],
             ['model', 'seedMethodListUsers'],
             ['model', 'seedMethodInsertUser'],
             ['model', 'seedMethodSetUserStatus'],
@@ -315,6 +322,12 @@ app.post('/toProcess', async (req, res) => {
             ['model', 'seedMethodListCharges'],
             ['model', 'seedMethodLinkPersonUser'],
             ['model', 'seedMethodUnlinkPersonUser'],
+            ['model', 'seedMethodInsertActivity'],
+            ['model', 'seedMethodListActivities'],
+            ['model', 'seedMethodAssignActivity'],
+            ['model', 'seedMethodGetMyActivities'],
+            ['model', 'seedMethodInsertReport'],
+            ['model', 'seedMethodListReports'],
             ['model', 'seedOptionUsuarios'],
             ['model', 'seedOptionPerfiles'],
             ['model', 'seedOptionAsignarPerfiles'],
@@ -322,6 +335,7 @@ app.post('/toProcess', async (req, res) => {
             ['model', 'seedOptionAuditoria'],
             ['model', 'seedOptionProyectos'],
             ['model', 'seedOptionPersonas'],
+            ['model', 'seedOptionActividades'],
             ['model', 'seedPermAdminListUsers'],
             ['model', 'seedPermAdminInsertUser'],
             ['model', 'seedPermAdminSetUserStatus'],
@@ -361,7 +375,14 @@ app.post('/toProcess', async (req, res) => {
             ['model', 'seedPermLiderAssignMember'],
             ['model', 'seedPermLiderRemoveMember'],
             ['model', 'seedPermLiderListPersons'],
+            ['model', 'seedPermLiderInsertActivity'],
+            ['model', 'seedPermLiderListActivities'],
+            ['model', 'seedPermLiderAssignActivity'],
+            ['model', 'seedPermLiderListReports'],
+            ['model', 'seedPermEmpleadoGetMyActivities'],
+            ['model', 'seedPermEmpleadoInsertReport'],
             ['model', 'seedPermOptLiderProyectos'],
+            ['model', 'seedPermOptLiderActividades'],
             ['model', 'seedUserAdmin'],
             ['model', 'seedUserEmpleado'],
             ['model', 'seedUserProfileAdmin'],

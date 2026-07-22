@@ -260,6 +260,104 @@
             </div>
           </section>
 
+          <!-- Gestión de actividades (CU-08/CU-09/CU-11): crear, asignar y reportar avance.
+               Pertenece al subsistema "proyectos". -->
+          <section id="activityMgmtBox" class="tabpanel hidden">
+            <h2>Gestión de actividades</h2>
+
+            <!-- Crear nueva actividad (líder) -->
+            <div id="createActivityBlock">
+              <h3 class="subhead">Crear actividad</h3>
+              <form id="formActivity" class="form">
+                <label>Proyecto
+                  <select id="activityProyectSelect" required></select>
+                </label>
+                <label>Nombre de la actividad
+                  <input type="text" name="activity_name" maxlength="200" required>
+                </label>
+                <label>Descripción
+                  <textarea name="activity_description" rows="3" maxlength="500"></textarea>
+                </label>
+                <label>Horas estimadas
+                  <input type="number" name="activity_hours" min="1" max="9999" required>
+                </label>
+                <button type="submit">Crear actividad</button>
+              </form>
+              <p id="activityMsg" class="msg"></p>
+            </div>
+
+            <!-- Lista de actividades del proyecto seleccionado -->
+            <h3 class="subhead">Actividades del proyecto</h3>
+            <div class="assign-row">
+              <label>Proyecto
+                <select id="activityFilterProyect"></select>
+              </label>
+              <button id="btnFilterActivities" type="button">Ver actividades</button>
+            </div>
+            <div id="activityList" class="list"></div>
+
+            <!-- Bloque de asignación: aparece al pulsar "Asignar" en una actividad -->
+            <div id="activityAssignBlock" class="hidden">
+              <h3 class="subhead" id="activityAssignTitle">Asignar persona</h3>
+              <div class="assign-row">
+                <label>Persona
+                  <select id="activityPersonSelect"></select>
+                </label>
+                <button id="btnAssignActivity" type="button">Asignar</button>
+                <button id="btnCancelAssign" type="button" class="secondary">Cancelar</button>
+              </div>
+              <p id="assignMsg" class="msg"></p>
+            </div>
+
+            <!-- Bloque de reportes: aparece al pulsar "Reportes" en una actividad -->
+            <div id="activityReportBlock" class="hidden">
+              <h3 class="subhead" id="activityReportTitle">Reportes de avance</h3>
+              
+              <!-- Formulario para nuevo reporte -->
+              <form id="formReport" class="form">
+                <label>Porcentaje de avance (50% - 100%)
+                  <input type="number" name="report_percentage" min="50" max="100" required>
+                </label>
+                <small class="hint">Al llegar al 100% la actividad se marcará como completada automáticamente.</small>
+                <label>Descripción de lo realizado
+                  <textarea name="report_description" rows="4" maxlength="1000" required placeholder="Explica qué hiciste, qué problemas encontraste, etc."></textarea>
+                </label>
+                <button type="submit">Registrar avance</button>
+              </form>
+              <p id="reportMsg" class="msg"></p>
+
+              <!-- Lista de reportes de la actividad -->
+              <h4 class="subhead">Historial de reportes</h4>
+              <div id="reportList" class="list"></div>
+              
+              <button id="btnCloseReports" type="button" class="secondary">Cerrar</button>
+            </div>
+          </section>
+
+          <!-- Mis actividades (empleado): ve sus actividades asignadas y reporta avance -->
+          <section id="myActivitiesBox" class="tabpanel hidden">
+            <h2>Mis actividades</h2>
+            <p class="hint">Actividades que tienes asignadas. Selecciona una para reportar tu avance.</p>
+            <div id="myActivitiesList" class="list"></div>
+
+            <!-- Reportar avance en actividad seleccionada -->
+            <div id="myReportBlock" class="hidden">
+              <h3 class="subhead" id="myReportTitle">Reportar avance</h3>
+              <form id="formMyReport" class="form">
+                <label>Porcentaje de avance (50% - 100%)
+                  <input type="number" name="my_report_percentage" min="50" max="100" required>
+                </label>
+                <small class="hint">Al llegar al 100% la actividad se completará.</small>
+                <label>Descripción de lo realizado
+                  <textarea name="my_report_description" rows="4" maxlength="1000" required placeholder="Explica qué hiciste..."></textarea>
+                </label>
+                <button type="submit">Registrar avance</button>
+              </form>
+              <p id="myReportMsg" class="msg"></p>
+              <button id="btnCancelMyReport" type="button" class="secondary">Volver</button>
+            </div>
+          </section>
+
           <!-- Mensaje cuando el perfil activo no tiene acciones en este subsistema. -->
           <p id="noActions" class="hint hidden">Este perfil no tiene acciones disponibles en este subsistema.</p>
         </div>
