@@ -89,11 +89,6 @@
                   <label>Cédula
                     <input type="text" name="person_ci" maxlength="20" required>
                   </label>
-                  <label>Cargo
-                    <select id="personChargeSelect"></select>
-                  </label>
-                </div>
-                <div class="assign-row">
                   <label>Nombre
                     <input type="text" name="person_na" maxlength="50" required>
                   </label>
@@ -109,6 +104,7 @@
                     <input type="text" name="person_phone" maxlength="30">
                   </label>
                 </div>
+                <small class="hint">Los cargos de la persona se gestionan con el botón "Cargos" de cada fila.</small>
                 <div class="panel-actions">
                   <button type="submit" id="btnSavePerson">Registrar</button>
                   <button type="button" id="btnCancelPerson" class="secondary hidden">Cancelar edición</button>
@@ -120,6 +116,21 @@
             <h3 class="subhead">Personas</h3>
             <input type="search" id="personSearch" class="search-input" placeholder="Buscar por nombre o cédula…" autocomplete="off">
             <div id="personList" class="list"></div>
+
+            <!-- Gestor de cargos de una persona: aparece al pulsar "Cargos" en una fila.
+                 Una persona puede tener varios cargos (person_charge M:N). -->
+            <div id="personChargeBlock" class="hidden">
+              <h3 class="subhead" id="personChargeTitle">Cargos</h3>
+              <div class="assign-row">
+                <label>Cargo
+                  <select id="personChargeSelect"></select>
+                </label>
+                <button id="btnAddPersonCharge" type="button">Agregar cargo</button>
+                <button id="btnClosePersonCharge" type="button" class="secondary">Cerrar</button>
+              </div>
+              <p id="personChargeMsg" class="msg"></p>
+              <div id="personChargeList" class="list"></div>
+            </div>
           </section>
 
           <!-- Asignar perfiles a usuarios (CU-03) -->
@@ -282,6 +293,10 @@
                 <label>Horas estimadas
                   <input type="number" name="activity_hours" min="1" max="9999" required>
                 </label>
+                <label>Cargo al que va dirigida
+                  <select id="activityChargeSelect" required></select>
+                </label>
+                <small class="hint">Solo podrás asignar la actividad a miembros del proyecto que tengan ese cargo.</small>
                 <div class="panel-actions">
                   <button type="submit" id="btnSaveActivity">Crear actividad</button>
                   <button type="button" id="btnCancelActivity" class="secondary hidden">Cancelar edición</button>

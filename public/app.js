@@ -58,6 +58,12 @@ const btnCancelPerson = $('#btnCancelPerson');
 const personMsg = $('#personMsg');
 const personSearch = $('#personSearch');
 const personList = $('#personList');
+const personChargeBlock = $('#personChargeBlock');
+const personChargeTitle = $('#personChargeTitle');
+const btnAddPersonCharge = $('#btnAddPersonCharge');
+const personChargeMsg = $('#personChargeMsg');
+const personChargeList = $('#personChargeList');
+const activityChargeSelect = $('#activityChargeSelect');
 
 // ---- Actividades ----
 const formActivity = $('#formActivity');
@@ -130,6 +136,7 @@ const showProfileCrudMsg = msgIn(profileCrudMsg);
 const showProyectMsg = msgIn(proyectMsg);
 const showMemberMsg = msgIn(memberMsg);
 const showPersonMsg = msgIn(personMsg);
+const showPersonChargeMsg = msgIn(personChargeMsg);
 const showActivityMsg = msgIn(activityMsg);
 const showAssignMsg = msgIn(assignMsg);
 const showReportMsg = msgIn(reportMsg);
@@ -428,7 +435,7 @@ async function loadProyectData() {
   currentProyect = null;
   proyectMembersBlock.classList.add('hidden');
 
-  // Personas (con su cargo) para elegir lider y miembros.
+  // Personas (con sus cargos) para elegir lider y miembros.
   const persons = await toProcess('Proyect', 'listPersons', [], 'proyectos');
   if (persons.ok) {
     for (const sel of [proyectLeaderSelect, memberPersonSelect]) {
@@ -436,7 +443,7 @@ async function loadProyectData() {
       for (const p of persons.data.data) {
         const opt = document.createElement('option');
         opt.value = p.person_id;
-        opt.textContent = `${p.person_na} ${p.person_ln} · ${p.charge_de}`;
+        opt.textContent = `${p.person_na} ${p.person_ln} · ${p.charges}`;
         sel.appendChild(opt);
       }
     }
@@ -541,7 +548,7 @@ async function refreshMemberList() {
     left.textContent = `${m.role_de} · ${m.person_na} ${m.person_ln}`;
     const sub = document.createElement('span');
     sub.className = 'item-sub';
-    sub.textContent = `Cargo: ${m.charge_de}`;
+    sub.textContent = `Cargos: ${m.charges}`;
     left.appendChild(sub);
 
     const actions = document.createElement('div');
@@ -578,7 +585,11 @@ async function loadActivityData() {
     fillSelect(activityFilterProyect, proyects.data.data, 'id', (p) => `#${p.id} · ${p.name}`, '— Todos los proyectos —');
   }
 
-  // Las personas asignables se cargan por proyecto al pulsar "Asignar" (solo miembros).
+  // Catálogo de cargos para el "cargo objetivo" de la actividad (dentro del subsistema proyectos).
+  const ch = await toProcess('Proyect', 'listCharges', [], 'proyectos');
+  fillSelect(activityChargeSelect, ch.ok ? ch.data.data : [], 'id', (c) => c.name, '— Elige un cargo —');
+
+  // Las personas asignables se cargan por proyecto al pulsar "Asignar" (solo miembros con el cargo).
   await refreshActivityList();
 }
 
@@ -620,7 +631,7 @@ async function refreshActivityList() {
     
     const porcentaje = a.last_percentage ? `${a.last_percentage}%` : 'Sin avance';
     const completado = a.completed ? ' ✓ Completado' : '';
-    sub.textContent = `${a.hours}h · ${a.assigned_to} · ${porcentaje}${completado} · ${a.status_de}`;
+    sub.textContent = `${a.hours}h · Cargo: ${a.charge_de} · ${a.assigned_to} · ${porcentaje}${completado} · ${a.status_de}`;
     left.appendChild(sub);
 
     const actions = document.createElement('div');
@@ -662,6 +673,7 @@ function startEditActivity(a) {
   formActivity.elements.activity_name.value = a.name;
   formActivity.elements.activity_description.value = a.description || '';
   formActivity.elements.activity_hours.value = a.hours;
+  activityChargeSelect.value = String(a.charge_id);
   activityFormTitle.textContent = `Editar «${a.name}»`;
   btnSaveActivity.textContent = 'Guardar cambios';
   btnCancelActivity.classList.remove('hidden');
@@ -676,12 +688,12 @@ async function selectActivityForAssign(a) {
   activityAssignBlock.classList.remove('hidden');
   activityReportBlock.classList.add('hidden');
   showAssignMsg('');
-  // Solo se pueden asignar MIEMBROS del proyecto: se cargan los miembros de ese proyecto.
-  const members = await toProcess('Proyect', 'listProyectMembers', [a.proyect_id], 'proyectos');
+  // Según el cargo: solo miembros del proyecto que TENGAN el cargo objetivo de la actividad.
+  const members = await toProcess('Proyect', 'listAssignableMembers', [a.proyect_id, a.charge_id], 'proyectos');
   const rows = members.ok ? members.data.data : [];
   fillSelect(activityPersonSelect, rows, 'person_id',
-    (p) => `${p.person_na} ${p.person_ln} · ${p.role_de}`, '— Selecciona un miembro —');
-  if (!rows.length) showAssignMsg('Este proyecto no tiene miembros. Agrégalos en "Mantenimiento de proyectos" → Miembros.', false);
+    (p) => `${p.person_na} ${p.person_ln}`, '— Selecciona un miembro —');
+  if (!rows.length) showAssignMsg(`Ningún miembro del proyecto tiene el cargo "${a.charge_de}". Agrega un miembro con ese cargo (Mantenimiento de proyectos → Miembros, y el cargo en Personas).`, false);
   refreshAssigneeList();
 }
 
@@ -703,7 +715,7 @@ async function refreshAssigneeList() {
     const item = document.createElement('div');
     item.className = 'item';
     const left = document.createElement('span');
-    left.textContent = `${p.person_na} ${p.person_ln} · ${p.charge_de}`;
+    left.textContent = `${p.person_na} ${p.person_ln}`;
     const actions = document.createElement('span');
     actions.className = 'row-actions';
     actions.appendChild(miniButton('Quitar', async () => {
@@ -966,12 +978,17 @@ async function linkPersonToUser(u) {
   if (r.ok) { refreshUnlinkedPersons(); refreshUsersList(); }
 }
 
-// ---- Pestaña "Mantenimiento de personas" (nómina): crear/buscar/editar ----
+// ---- Pestaña "Mantenimiento de personas" (nómina): crear/buscar/editar + cargos ----
+let currentPerson = null; // persona elegida con el botón "Cargos"
+
 async function loadPersonData() {
   showPersonMsg('');
   resetPersonForm();
+  currentPerson = null;
+  personChargeBlock.classList.add('hidden');
+  // El desplegable del gestor de cargos se llena con el catálogo de cargos.
   const ch = await toProcess('Person', 'listCharges', []);
-  fillSelect(personChargeSelect, ch.ok ? ch.data.data : [], 'id', (c) => c.name, '— Sin cargo —');
+  fillSelect(personChargeSelect, ch.ok ? ch.data.data : [], 'id', (c) => c.name, '— Elige un cargo —');
   refreshPersonList();
 }
 
@@ -1005,17 +1022,58 @@ async function refreshPersonList() {
     info.append(name);
     const sub = document.createElement('span');
     sub.className = 'item-sub';
-    sub.textContent = `CI ${p.person_ci} · ${p.charge_de} · ${p.person_mail} · ${p.person_phone}` +
+    sub.textContent = `CI ${p.person_ci} · Cargos: ${p.charges} · ${p.person_mail} · ${p.person_phone}` +
       (p.linked_user ? ` · cuenta: ${p.linked_user}` : ' · sin cuenta');
     info.appendChild(sub);
 
     const actions = document.createElement('span');
     actions.className = 'row-actions';
+    actions.appendChild(miniButton('Cargos', () => openPersonCharges(p)));
     actions.appendChild(miniButton('Editar', () => startEditPerson(p)));
 
     item.appendChild(info);
     item.appendChild(actions);
     personList.appendChild(item);
+  }
+}
+
+// ---- Gestor de cargos de una persona (M:N) ----
+function openPersonCharges(p) {
+  currentPerson = p;
+  personChargeTitle.textContent = `Cargos de ${p.person_na} ${p.person_ln}`;
+  personChargeBlock.classList.remove('hidden');
+  showPersonChargeMsg('');
+  refreshPersonChargeList();
+}
+
+async function refreshPersonChargeList() {
+  personChargeList.innerHTML = '';
+  if (!currentPerson) return;
+  const res = await toProcess('Person', 'listPersonCharges', [currentPerson.person_id]);
+  if (!res.ok) { showPersonChargeMsg(res.data.msg || 'Error.', false); return; }
+  const rows = res.data.data || [];
+  if (!rows.length) {
+    const empty = document.createElement('p');
+    empty.className = 'hint';
+    empty.textContent = 'Esta persona aún no tiene cargos. Agrégale al menos uno.';
+    personChargeList.appendChild(empty);
+    return;
+  }
+  for (const c of rows) {
+    const item = document.createElement('div');
+    item.className = 'item';
+    const left = document.createElement('span');
+    left.textContent = c.name;
+    const actions = document.createElement('span');
+    actions.className = 'row-actions';
+    actions.appendChild(miniButton('Quitar', async () => {
+      const r = await toProcess('Person', 'removePersonCharge', [currentPerson.person_id, c.charge_id]);
+      showPersonChargeMsg(r.ok ? 'Cargo quitado.' : (r.data.msg || 'Error.'), r.ok);
+      if (r.ok) { refreshPersonChargeList(); refreshPersonList(); }
+    }, true));
+    item.appendChild(left);
+    item.appendChild(actions);
+    personChargeList.appendChild(item);
   }
 }
 
@@ -1027,7 +1085,6 @@ function startEditPerson(p) {
   formPerson.elements.person_ln.value = p.person_ln;
   formPerson.elements.person_mail.value = p.person_mail === '—' ? '' : p.person_mail;
   formPerson.elements.person_phone.value = p.person_phone === '—' ? '' : p.person_phone;
-  personChargeSelect.value = p.charge_id || '';
   personFormTitle.textContent = `Editar a ${p.person_na} ${p.person_ln}`;
   btnSavePerson.textContent = 'Guardar cambios';
   btnCancelPerson.classList.remove('hidden');
@@ -1426,8 +1483,7 @@ formPerson.addEventListener('submit', async (e) => {
     person_na: fd.get('person_na'),
     person_ln: fd.get('person_ln'),
     person_mail: fd.get('person_mail'),
-    person_phone: fd.get('person_phone'),
-    charge_id: personChargeSelect.value ? Number(personChargeSelect.value) : null
+    person_phone: fd.get('person_phone')
   };
   const editId = personIdField.value;
   const method = editId ? 'updatePerson' : 'insertPerson';
@@ -1451,6 +1507,25 @@ let personSearchTimer = null;
 personSearch.addEventListener('input', () => {
   clearTimeout(personSearchTimer);
   personSearchTimer = setTimeout(refreshPersonList, 250);
+});
+
+// ---- Gestor de cargos de una persona ----
+btnAddPersonCharge.addEventListener('click', async () => {
+  if (!currentPerson) return;
+  const charge_id = Number(personChargeSelect.value);
+  if (!charge_id) { showPersonChargeMsg('Elige un cargo.', false); return; }
+  const r = await toProcess('Person', 'addPersonCharge', [currentPerson.person_id, charge_id]);
+  if (!r.ok) { showPersonChargeMsg(r.data.msg || 'Error.', false); return; }
+  // addPersonCharge usa ON CONFLICT DO NOTHING RETURNING: sin fila = ya lo tenía.
+  showPersonChargeMsg(r.data.data && r.data.data.length ? 'Cargo agregado.' : 'La persona ya tenía ese cargo.', true);
+  refreshPersonChargeList();
+  refreshPersonList();
+});
+
+$('#btnClosePersonCharge').addEventListener('click', () => {
+  personChargeBlock.classList.add('hidden');
+  currentPerson = null;
+  showPersonChargeMsg('');
 });
 
 formProfile.addEventListener('submit', async (e) => {
@@ -1515,7 +1590,8 @@ formActivity.addEventListener('submit', async (e) => {
   const base = {
     name: (fd.get('activity_name') || '').trim(),
     description: (fd.get('activity_description') || '').trim(),
-    hours: parseInt(fd.get('activity_hours'))
+    hours: parseInt(fd.get('activity_hours')),
+    charge_id: activityChargeSelect.value ? Number(activityChargeSelect.value) : null
   };
   const method = editId ? 'updateActivity' : 'insertActivity';
   const body = editId ? { activity_id: Number(editId), ...base } : { proyect_id: Number(activityProyectSelect.value), ...base };

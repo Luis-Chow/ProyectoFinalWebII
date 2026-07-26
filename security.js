@@ -11,7 +11,6 @@ function validatePerson(params) {
     const person_ln = (params.person_ln || '').trim();
     const person_mail = (params.person_mail || '').trim();
     const person_phone = (params.person_phone || '').trim();
-    const charge_id = params.charge_id ? Number(params.charge_id) : null;
 
     const errors = [];
     if (person_ci.length < 4) errors.push('La cédula debe tener al menos 4 caracteres.');
@@ -21,7 +20,8 @@ function validatePerson(params) {
     if (person_mail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(person_mail)) errors.push('El correo no tiene un formato válido.');
     if (errors.length) throw new AppError(400, 'No se pudo guardar la persona: revisa los requisitos.', errors);
 
-    return { person_ci, person_na, person_ln, person_mail: person_mail || null, person_phone: person_phone || null, charge_id };
+    // Los cargos de la persona ya no viven aquí (son M:N en person_charge).
+    return { person_ci, person_na, person_ln, person_mail: person_mail || null, person_phone: person_phone || null };
 }
 
 // Metodos "ricos": funciones de servidor con validacion, valores forzados y transaccion.
@@ -84,7 +84,7 @@ const businessMethods = {
         const p = validatePerson(ctx.params || {});
         try {
             const rows = await global.dbc.exeQuery(global.dbc.getSentence('security', 'insertPerson'),
-                [p.person_ci, p.person_na, p.person_ln, p.person_mail, p.person_phone, p.charge_id]);
+                [p.person_ci, p.person_na, p.person_ln, p.person_mail, p.person_phone]);
             return { person_id: rows[0].person_id };
         } catch (err) {
             if (err.code === '23505') throw new AppError(409, 'Ya existe una persona con esa cédula.');
@@ -98,7 +98,7 @@ const businessMethods = {
         const p = validatePerson(ctx.params || {});
         try {
             await global.dbc.exeQuery(global.dbc.getSentence('security', 'updatePerson'),
-                [person_id, p.person_ci, p.person_na, p.person_ln, p.person_mail, p.person_phone, p.charge_id]);
+                [person_id, p.person_ci, p.person_na, p.person_ln, p.person_mail, p.person_phone]);
             return { updated: true };
         } catch (err) {
             if (err.code === '23505') throw new AppError(409, 'Ya existe una persona con esa cédula.');
@@ -291,9 +291,10 @@ const businessMethods = {
 
     // ============ ACTIVITIES ============
 
-    // CU-08: crear una actividad dentro de un proyecto activo.
+    // CU-08: crear una actividad dentro de un proyecto activo. La actividad va dirigida a un
+    // CARGO (charge_id): luego solo se podrá asignar a miembros que tengan ese cargo.
     'proyectos.Activity.insertActivity': async (ctx) => {
-        const { proyect_id, name, description, hours } = ctx.params || {};
+        const { proyect_id, name, description, hours, charge_id } = ctx.params || {};
         const errors = [];
         const cleanName = (name || '').trim();
         const cleanDescription = (description || '').trim();
@@ -302,6 +303,7 @@ const businessMethods = {
         if (!proyect_id) errors.push('El proyecto es obligatorio.');
         if (cleanName.length < 3) errors.push('El nombre de la actividad debe tener al menos 3 caracteres.');
         if (numHours <= 0) errors.push('Las horas estimadas deben ser mayores a 0.');
+        if (!charge_id) errors.push('Debes elegir el cargo al que va dirigida la actividad.');
 
         if (errors.length) throw new AppError(400, 'No se pudo crear la actividad.', errors);
 
@@ -311,14 +313,14 @@ const businessMethods = {
 
         const rows = await global.dbc.exeQuery(
             global.dbc.getSentence('proyectos', 'insertActivity'),
-            [proyect_id, cleanName, cleanDescription, numHours]
+            [proyect_id, cleanName, cleanDescription, numHours, charge_id]
         );
         return { id: rows[0].id, name: cleanName };
     },
 
-    // CU-08: editar una actividad (nombre, descripción, horas). Misma validación que al crear.
+    // CU-08: editar una actividad (nombre, descripción, horas, cargo). Misma validación que al crear.
     'proyectos.Activity.updateActivity': async (ctx) => {
-        const { activity_id, name, description, hours } = ctx.params || {};
+        const { activity_id, name, description, hours, charge_id } = ctx.params || {};
         if (!activity_id) throw new AppError(400, 'Falta la actividad a editar.');
         const errors = [];
         const cleanName = (name || '').trim();
@@ -326,13 +328,14 @@ const businessMethods = {
         const numHours = parseInt(hours) || 0;
         if (cleanName.length < 3) errors.push('El nombre de la actividad debe tener al menos 3 caracteres.');
         if (numHours <= 0) errors.push('Las horas estimadas deben ser mayores a 0.');
+        if (!charge_id) errors.push('Debes elegir el cargo al que va dirigida la actividad.');
         if (errors.length) throw new AppError(400, 'No se pudo actualizar la actividad.', errors);
 
         const activity = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'getActivity'), [activity_id]);
         if (!activity.length) throw new AppError(404, 'La actividad no existe.');
 
         await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'updateActivity'),
-            [activity_id, cleanName, cleanDescription, numHours]);
+            [activity_id, cleanName, cleanDescription, numHours, charge_id]);
         return { updated: true };
     },
 
@@ -358,6 +361,16 @@ const businessMethods = {
         );
         if (!(member[0] && member[0].dup)) {
             throw new AppError(409, 'Esa persona no es miembro del proyecto. Agrégala primero como miembro del proyecto.');
+        }
+
+        // Según el cargo (CU-08): la persona debe TENER el cargo al que va dirigida la
+        // actividad (activity.charge_id) entre sus cargos (person_charge).
+        const hasCharge = await global.dbc.exeQuery(
+            global.dbc.getSentence('proyectos', 'personHasCharge'),
+            [person_id, activity[0].charge_id]
+        );
+        if (!(hasCharge[0] && hasCharge[0].has)) {
+            throw new AppError(409, 'Esa persona no tiene el cargo requerido por la actividad.');
         }
 
         // ON CONFLICT DO NOTHING RETURNING: si la persona ya estaba asignada no devuelve
