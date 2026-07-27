@@ -469,6 +469,46 @@ const businessMethods = {
         const rows = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'listTimesheetByPerson'),
             [person_id, dateFrom || null, dateTo || null, Number(limit) || 500]);
         return rows;
+    },
+
+    // ============ CHAT POR EQUIPOS (alcance pizarra 1) ============
+    // Un solo hilo de mensajes por proyecto; lo comparten el líder y todos sus miembros.
+
+    // Enviar un mensaje. El remitente SIEMPRE sale de la sesión (nunca del cliente), igual
+    // que sendNotification: así nadie puede escribir "como" otra persona.
+    'proyectos.Chat.sendChatMessage': async (ctx) => {
+        const { proyect_id, message } = ctx.params || {};
+        const cleanMessage = (message || '').trim();
+        const errors = [];
+        if (!proyect_id) errors.push('El proyecto es obligatorio.');
+        if (!cleanMessage) errors.push('El mensaje no puede estar vacío.');
+        if (cleanMessage.length > 500) errors.push('El mensaje no debe superar los 500 caracteres.');
+        if (errors.length) throw new AppError(400, 'No se pudo enviar el mensaje.', errors);
+
+        const proyect = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'getProyect'), [proyect_id]);
+        if (!proyect.length) throw new AppError(404, 'El proyecto no existe.');
+
+        const sender_user_id = ctx.session && ctx.session.user_id;
+        const rows = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'sendChatMessage'),
+            [proyect_id, sender_user_id, cleanMessage]);
+        return { id: rows[0].id };
+    },
+
+    // Historial del chat de un proyecto, del más viejo al más nuevo (como cualquier chat).
+    'proyectos.Chat.listChatMessages': async (ctx) => {
+        const [proyect_id] = ctx.params || [];
+        if (!proyect_id) throw new AppError(400, 'Falta el proyecto.');
+        const rows = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'listChatMessages'), [proyect_id]);
+        return rows;
+    },
+
+    // Proyectos donde el EMPLEADO participa (miembro o con actividad asignada), para que
+    // elija con qué equipo chatear sin darle acceso a Proyect.listProyects (ese es del líder).
+    'proyectos.Chat.listMyProyects': async (ctx) => {
+        const [person_id] = ctx.params || [];
+        if (!person_id) throw new AppError(400, 'Falta la persona.');
+        const rows = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'listMyProyects'), [person_id]);
+        return rows;
     }
 };
 

@@ -79,10 +79,15 @@
     "getMyNotifications": "SELECT tn.id, tn.message, to_char(tn.created_at, 'DD/MM/YYYY HH24:MI') AS created_at, p.name AS proyect_name, COALESCE(pe.person_na || ' ' || pe.person_ln, u.user_na) AS sender FROM team_notification tn INNER JOIN proyect p ON p.id = tn.proyect_id INNER JOIN \"user\" u ON u.user_id = tn.sender_user_id LEFT JOIN person_user pu ON pu.user_id = tn.sender_user_id LEFT JOIN person pe ON pe.person_id = pu.person_id WHERE tn.proyect_id IN (SELECT pr.proyect_id FROM proyect_role pr INNER JOIN proyect_role_person prp ON prp.proyect_role_id = pr.id WHERE prp.person_id = $1 UNION SELECT a.proyect_id FROM activity a INNER JOIN activity_assignment aa ON aa.activity_id = a.id WHERE aa.person_id = $1) ORDER BY tn.id DESC",
 
     "listTimesheetGeneral": "SELECT r.id, r.percentage, r.description, r.completed, to_char(r.created_at, 'DD/MM/YYYY HH24:MI') AS created_at, pe.person_na, pe.person_ln, a.name AS activity_name, p.name AS proyect_name FROM report r INNER JOIN activity a ON a.id = r.activity_id INNER JOIN proyect p ON p.id = a.proyect_id INNER JOIN person pe ON pe.person_id = r.person_id WHERE ($1::date IS NULL OR r.created_at::date >= $1::date) AND ($2::date IS NULL OR r.created_at::date <= $2::date) ORDER BY r.created_at DESC LIMIT $3",
-    "listTimesheetByPerson": "SELECT r.id, r.percentage, r.description, r.completed, to_char(r.created_at, 'DD/MM/YYYY HH24:MI') AS created_at, a.name AS activity_name, p.name AS proyect_name FROM report r INNER JOIN activity a ON a.id = r.activity_id INNER JOIN proyect p ON p.id = a.proyect_id WHERE r.person_id = $1 AND ($2::date IS NULL OR r.created_at::date >= $2::date) AND ($3::date IS NULL OR r.created_at::date <= $3::date) ORDER BY r.created_at DESC LIMIT $4"
+    "listTimesheetByPerson": "SELECT r.id, r.percentage, r.description, r.completed, to_char(r.created_at, 'DD/MM/YYYY HH24:MI') AS created_at, a.name AS activity_name, p.name AS proyect_name FROM report r INNER JOIN activity a ON a.id = r.activity_id INNER JOIN proyect p ON p.id = a.proyect_id WHERE r.person_id = $1 AND ($2::date IS NULL OR r.created_at::date >= $2::date) AND ($3::date IS NULL OR r.created_at::date <= $3::date) ORDER BY r.created_at DESC LIMIT $4",
+
+    "createChatMessage": "CREATE TABLE IF NOT EXISTS chat_message (id SERIAL PRIMARY KEY, proyect_id INT NOT NULL REFERENCES proyect(id) ON DELETE CASCADE, sender_user_id INT NOT NULL REFERENCES \"user\"(user_id), message TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+    "sendChatMessage": "INSERT INTO chat_message (proyect_id, sender_user_id, message) VALUES ($1, $2, $3) RETURNING id",
+    "listChatMessages": "SELECT cm.id, cm.message, to_char(cm.created_at, 'DD/MM/YYYY HH24:MI') AS created_at, cm.sender_user_id, COALESCE(pe.person_na || ' ' || pe.person_ln, u.user_na) AS sender FROM chat_message cm INNER JOIN \"user\" u ON u.user_id = cm.sender_user_id LEFT JOIN person_user pu ON pu.user_id = cm.sender_user_id LEFT JOIN person pe ON pe.person_id = pu.person_id WHERE cm.proyect_id = $1 ORDER BY cm.id ASC",
+    "listMyProyects": "SELECT DISTINCT p.id, p.name FROM proyect p WHERE p.id IN (SELECT pr.proyect_id FROM proyect_role pr INNER JOIN proyect_role_person prp ON prp.proyect_role_id = pr.id WHERE prp.person_id = $1 UNION SELECT a.proyect_id FROM activity a INNER JOIN activity_assignment aa ON aa.activity_id = a.id WHERE aa.person_id = $1) ORDER BY p.name"
   },
   "model": {
-    "dropAll": "DROP TABLE IF EXISTS team_notification, report, activity_assignment, activity, proyect_role_person, proyect_role, proyect, person_charge, person_user, person, charge, projects, project_members, audit, permission_method, permission_option, user_profile, method, option, object, sub_system, subsystem, \"user\", users, profile, status CASCADE",
+    "dropAll": "DROP TABLE IF EXISTS chat_message, team_notification, report, activity_assignment, activity, proyect_role_person, proyect_role, proyect, person_charge, person_user, person, charge, projects, project_members, audit, permission_method, permission_option, user_profile, method, option, object, sub_system, subsystem, \"user\", users, profile, status CASCADE",
 
     "createStatus": "CREATE TABLE IF NOT EXISTS status (status_id SERIAL PRIMARY KEY, status_de VARCHAR(50) NOT NULL)",
     "createProfile": "CREATE TABLE IF NOT EXISTS profile (profile_id SERIAL PRIMARY KEY, profile_de VARCHAR(50) NOT NULL)",
@@ -132,6 +137,7 @@
     "seedObjectActivity": "INSERT INTO object (object_id, object_de, sub_system_id) VALUES (8, 'Activity', 2) ON CONFLICT (object_id) DO NOTHING",
     "seedObjectNotification": "INSERT INTO object (object_id, object_de, sub_system_id) VALUES (9, 'Notification', 2) ON CONFLICT (object_id) DO NOTHING",
     "seedObjectReport": "INSERT INTO object (object_id, object_de, sub_system_id) VALUES (10, 'Report', 2) ON CONFLICT (object_id) DO NOTHING",
+    "seedObjectChat": "INSERT INTO object (object_id, object_de, sub_system_id) VALUES (11, 'Chat', 2) ON CONFLICT (object_id) DO NOTHING",
 
     "seedMethodListUsers": "INSERT INTO method (method_id, method_de, object_id) VALUES (1, 'listUsers', 1) ON CONFLICT (method_id) DO NOTHING",
     "seedMethodInsertUser": "INSERT INTO method (method_id, method_de, object_id) VALUES (2, 'insertUser', 1) ON CONFLICT (method_id) DO NOTHING",
@@ -185,6 +191,9 @@
     "seedMethodProyectListCharges": "INSERT INTO method (method_id, method_de, object_id) VALUES (50, 'listCharges', 6) ON CONFLICT (method_id) DO NOTHING",
     "seedMethodListTimesheetGeneral": "INSERT INTO method (method_id, method_de, object_id) VALUES (51, 'listTimesheetGeneral', 10) ON CONFLICT (method_id) DO NOTHING",
     "seedMethodListTimesheetByPerson": "INSERT INTO method (method_id, method_de, object_id) VALUES (52, 'listTimesheetByPerson', 10) ON CONFLICT (method_id) DO NOTHING",
+    "seedMethodSendChatMessage": "INSERT INTO method (method_id, method_de, object_id) VALUES (53, 'sendChatMessage', 11) ON CONFLICT (method_id) DO NOTHING",
+    "seedMethodListChatMessages": "INSERT INTO method (method_id, method_de, object_id) VALUES (54, 'listChatMessages', 11) ON CONFLICT (method_id) DO NOTHING",
+    "seedMethodListMyProyects": "INSERT INTO method (method_id, method_de, object_id) VALUES (55, 'listMyProyects', 11) ON CONFLICT (method_id) DO NOTHING",
 
     "seedPermAdminListUsers": "INSERT INTO permission_method (profile_id, method_id) VALUES (1, 1) ON CONFLICT (profile_id, method_id) DO NOTHING",
     "seedPermAdminInsertUser": "INSERT INTO permission_method (profile_id, method_id) VALUES (1, 2) ON CONFLICT (profile_id, method_id) DO NOTHING",
@@ -229,6 +238,7 @@
     "seedOptionProgress": "INSERT INTO option (option_id, option_de, sub_system_id) VALUES (13, 'progressBox', 2) ON CONFLICT (option_id) DO NOTHING",
     "seedOptionTimesheetGeneral": "INSERT INTO option (option_id, option_de, sub_system_id) VALUES (14, 'timesheetGeneralBox', 2) ON CONFLICT (option_id) DO NOTHING",
     "seedOptionTimesheetByPerson": "INSERT INTO option (option_id, option_de, sub_system_id) VALUES (15, 'timesheetByPersonBox', 2) ON CONFLICT (option_id) DO NOTHING",
+    "seedOptionChat": "INSERT INTO option (option_id, option_de, sub_system_id) VALUES (16, 'chatBox', 2) ON CONFLICT (option_id) DO NOTHING",
     "seedPermOptAdminUsuarios": "INSERT INTO permission_option (profile_id, option_id) VALUES (1, 1) ON CONFLICT (profile_id, option_id) DO NOTHING",
     "seedPermOptAdminPerfiles": "INSERT INTO permission_option (profile_id, option_id) VALUES (1, 2) ON CONFLICT (profile_id, option_id) DO NOTHING",
     "seedPermOptAdminAsignarPerfiles": "INSERT INTO permission_option (profile_id, option_id) VALUES (1, 3) ON CONFLICT (profile_id, option_id) DO NOTHING",
@@ -253,6 +263,9 @@
     "seedPermLiderSendNotification": "INSERT INTO permission_method (profile_id, method_id) VALUES (3, 40) ON CONFLICT (profile_id, method_id) DO NOTHING",
     "seedPermLiderListProyectNotifications": "INSERT INTO permission_method (profile_id, method_id) VALUES (3, 41) ON CONFLICT (profile_id, method_id) DO NOTHING",
     "seedPermEmpleadoGetMyNotifications": "INSERT INTO permission_method (profile_id, method_id) VALUES (2, 42) ON CONFLICT (profile_id, method_id) DO NOTHING",
+    "seedPermEmpleadoSendChatMessage": "INSERT INTO permission_method (profile_id, method_id) VALUES (2, 53) ON CONFLICT (profile_id, method_id) DO NOTHING",
+    "seedPermEmpleadoListChatMessages": "INSERT INTO permission_method (profile_id, method_id) VALUES (2, 54) ON CONFLICT (profile_id, method_id) DO NOTHING",
+    "seedPermEmpleadoListMyProyects": "INSERT INTO permission_method (profile_id, method_id) VALUES (2, 55) ON CONFLICT (profile_id, method_id) DO NOTHING",
     "seedPermLiderUpdateActivity": "INSERT INTO permission_method (profile_id, method_id) VALUES (3, 43) ON CONFLICT (profile_id, method_id) DO NOTHING",
     "seedPermLiderListActivityAssignees": "INSERT INTO permission_method (profile_id, method_id) VALUES (3, 44) ON CONFLICT (profile_id, method_id) DO NOTHING",
     "seedPermLiderRemoveActivityAssignee": "INSERT INTO permission_method (profile_id, method_id) VALUES (3, 45) ON CONFLICT (profile_id, method_id) DO NOTHING",
@@ -261,6 +274,8 @@
     "seedPermLiderListAssignableMembers": "INSERT INTO permission_method (profile_id, method_id) VALUES (3, 49) ON CONFLICT (profile_id, method_id) DO NOTHING",
     "seedPermLiderListTimesheetGeneral": "INSERT INTO permission_method (profile_id, method_id) VALUES (3, 51) ON CONFLICT (profile_id, method_id) DO NOTHING",
     "seedPermLiderListTimesheetByPerson": "INSERT INTO permission_method (profile_id, method_id) VALUES (3, 52) ON CONFLICT (profile_id, method_id) DO NOTHING",
+    "seedPermLiderSendChatMessage": "INSERT INTO permission_method (profile_id, method_id) VALUES (3, 53) ON CONFLICT (profile_id, method_id) DO NOTHING",
+    "seedPermLiderListChatMessages": "INSERT INTO permission_method (profile_id, method_id) VALUES (3, 54) ON CONFLICT (profile_id, method_id) DO NOTHING",
     "seedPermOptLiderProyectos": "INSERT INTO permission_option (profile_id, option_id) VALUES (3, 6) ON CONFLICT (profile_id, option_id) DO NOTHING",
     "seedPermOptLiderActividades": "INSERT INTO permission_option (profile_id, option_id) VALUES (3, 8) ON CONFLICT (profile_id, option_id) DO NOTHING",
     "seedPermOptEmpleadoMisActividades": "INSERT INTO permission_option (profile_id, option_id) VALUES (2, 9) ON CONFLICT (profile_id, option_id) DO NOTHING",
@@ -270,6 +285,8 @@
     "seedPermOptLiderProgress": "INSERT INTO permission_option (profile_id, option_id) VALUES (3, 13) ON CONFLICT (profile_id, option_id) DO NOTHING",
     "seedPermOptLiderTimesheetGeneral": "INSERT INTO permission_option (profile_id, option_id) VALUES (3, 14) ON CONFLICT (profile_id, option_id) DO NOTHING",
     "seedPermOptLiderTimesheetByPerson": "INSERT INTO permission_option (profile_id, option_id) VALUES (3, 15) ON CONFLICT (profile_id, option_id) DO NOTHING",
+    "seedPermOptLiderChat": "INSERT INTO permission_option (profile_id, option_id) VALUES (3, 16) ON CONFLICT (profile_id, option_id) DO NOTHING",
+    "seedPermOptEmpleadoChat": "INSERT INTO permission_option (profile_id, option_id) VALUES (2, 16) ON CONFLICT (profile_id, option_id) DO NOTHING",
 
     "seedUserAdmin": "INSERT INTO \"user\" (user_na, user_pw, status_id) VALUES ('admin1', 'Admin123', 1) ON CONFLICT (user_na) DO NOTHING",
     "seedUserEmpleado": "INSERT INTO \"user\" (user_na, user_pw, status_id) VALUES ('empleado1', 'Empleado123', 1) ON CONFLICT (user_na) DO NOTHING",

@@ -541,6 +541,35 @@ button[type="submit"]:hover,
   word-break: break-word;
 }
 
+/* ---- Chat de equipo: hilo de burbujas por proyecto ---- */
+.chat-thread {
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+.chat-msg {
+  max-width: 75%;
+  align-self: flex-start;
+}
+
+.chat-msg.own {
+  align-self: flex-end;
+  align-items: flex-end;
+  background: #2f5d3a;
+}
+
+.chat-form {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  align-items: flex-end;
+  margin-top: 10px;
+}
+
+.chat-form textarea {
+  flex: 1;
+}
+
 /* ---- Ventana con pestañas verticales ---- */
 .workspace {
   display: flex;

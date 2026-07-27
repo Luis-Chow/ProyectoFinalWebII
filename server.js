@@ -59,7 +59,8 @@ const AUDIT_ACTIONS = {
     assignActivity: 'insert',
     removeActivityAssignee: 'delete',
     insertReport: 'insert',
-    sendNotification: 'insert'
+    sendNotification: 'insert',
+    sendChatMessage: 'insert'
 };
 
 // Arma una descripcion legible de los params SIN exponer secretos (la contraseña nunca
@@ -273,7 +274,8 @@ app.post('/toProcess', async (req, res) => {
             ['proyectos', 'createActivity'],
             ['proyectos', 'createActivityAssignment'],
             ['proyectos', 'createReport'],
-            ['proyectos', 'createTeamNotification']
+            ['proyectos', 'createTeamNotification'],
+            ['proyectos', 'createChatMessage']
         ];
         for (const [schema, id] of ddl) {
             await global.dbc.exeQuery(global.dbc.getSentence(schema, id));
@@ -300,6 +302,7 @@ app.post('/toProcess', async (req, res) => {
             ['model', 'seedObjectActivity'],
             ['model', 'seedObjectNotification'],
             ['model', 'seedObjectReport'],
+            ['model', 'seedObjectChat'],
             ['model', 'seedMethodListUsers'],
             ['model', 'seedMethodInsertUser'],
             ['model', 'seedMethodSetUserStatus'],
@@ -352,6 +355,9 @@ app.post('/toProcess', async (req, res) => {
             ['model', 'seedMethodProyectListCharges'],
             ['model', 'seedMethodListTimesheetGeneral'],
             ['model', 'seedMethodListTimesheetByPerson'],
+            ['model', 'seedMethodSendChatMessage'],
+            ['model', 'seedMethodListChatMessages'],
+            ['model', 'seedMethodListMyProyects'],
             ['model', 'seedOptionUsuarios'],
             ['model', 'seedOptionPerfiles'],
             ['model', 'seedOptionAsignarPerfiles'],
@@ -367,6 +373,7 @@ app.post('/toProcess', async (req, res) => {
             ['model', 'seedOptionProgress'],
             ['model', 'seedOptionTimesheetGeneral'],
             ['model', 'seedOptionTimesheetByPerson'],
+            ['model', 'seedOptionChat'],
             ['model', 'seedPermAdminListUsers'],
             ['model', 'seedPermAdminInsertUser'],
             ['model', 'seedPermAdminSetUserStatus'],
@@ -418,6 +425,9 @@ app.post('/toProcess', async (req, res) => {
             ['model', 'seedPermLiderSendNotification'],
             ['model', 'seedPermLiderListProyectNotifications'],
             ['model', 'seedPermEmpleadoGetMyNotifications'],
+            ['model', 'seedPermEmpleadoSendChatMessage'],
+            ['model', 'seedPermEmpleadoListChatMessages'],
+            ['model', 'seedPermEmpleadoListMyProyects'],
             ['model', 'seedPermLiderUpdateActivity'],
             ['model', 'seedPermLiderListActivityAssignees'],
             ['model', 'seedPermLiderRemoveActivityAssignee'],
@@ -426,6 +436,8 @@ app.post('/toProcess', async (req, res) => {
             ['model', 'seedPermLiderListAssignableMembers'],
             ['model', 'seedPermLiderListTimesheetGeneral'],
             ['model', 'seedPermLiderListTimesheetByPerson'],
+            ['model', 'seedPermLiderSendChatMessage'],
+            ['model', 'seedPermLiderListChatMessages'],
             ['model', 'seedPermOptLiderProyectos'],
             ['model', 'seedPermOptLiderActividades'],
             ['model', 'seedPermOptEmpleadoMisActividades'],
@@ -435,6 +447,8 @@ app.post('/toProcess', async (req, res) => {
             ['model', 'seedPermOptLiderProgress'],
             ['model', 'seedPermOptLiderTimesheetGeneral'],
             ['model', 'seedPermOptLiderTimesheetByPerson'],
+            ['model', 'seedPermOptLiderChat'],
+            ['model', 'seedPermOptEmpleadoChat'],
             ['model', 'seedUserAdmin'],
             ['model', 'seedUserEmpleado'],
             ['model', 'seedUserProfileAdmin'],

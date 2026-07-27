@@ -101,6 +101,10 @@ const notifyMsg = $('#notifyMsg');
 const notifyList = $('#notifyList');
 const myNotifMsg = $('#myNotifMsg');
 const myNotifList = $('#myNotifList');
+const chatProyectSelect = $('#chatProyectSelect');
+const chatMsg = $('#chatMsg');
+const chatMessageList = $('#chatMessageList');
+const formChat = $('#formChat');
 const proyectStatusFilter = $('#proyectStatusFilter');
 const proyectStatusMsg = $('#proyectStatusMsg');
 const proyectStatusList = $('#proyectStatusList');
@@ -154,6 +158,7 @@ const showReportMsg = msgIn(reportMsg);
 const showMyReportMsg = msgIn(myReportMsg);
 const showNotifyMsg = msgIn(notifyMsg);
 const showMyNotifMsg = msgIn(myNotifMsg);
+const showChatMsg = msgIn(chatMsg);
 const showProyectStatusMsg = msgIn(proyectStatusMsg);
 const showProgressMsg = msgIn(progressMsg);
 const showTsGeneralMsg = msgIn(tsGeneralMsg);
@@ -1158,6 +1163,63 @@ function renderNotifItems(container, rows, showProyect) {
   }
 }
 
+// ---- Pestaña "Chat de equipo" (líder y empleado comparten el mismo hilo por proyecto) ----
+async function loadChatData() {
+  showChatMsg('');
+  chatMessageList.innerHTML = '';
+  let proyects = [];
+  // No se distingue por el nombre del perfil (es editable): se usa la misma señal que
+  // decide las pestañas, si puede ver "Mantenimiento de proyectos" es porque gestiona todos.
+  const isLeader = (currentSession.visibleOptions || []).includes('proyectMgmtBox');
+  if (isLeader) {
+    // El líder gestiona todos los proyectos (igual que en "Notificar al equipo").
+    const res = await toProcess('Proyect', 'listProyects', [], 'proyectos');
+    proyects = res.ok ? res.data.data : [];
+  } else {
+    // El empleado solo ve los proyectos donde participa (Chat.listMyProyects).
+    if (!currentSession.person_id) { showChatMsg('No tienes una persona vinculada a tu cuenta.', false); return; }
+    const res = await toProcess('Chat', 'listMyProyects', [currentSession.person_id], 'proyectos');
+    proyects = res.ok ? res.data.data : [];
+  }
+  fillSelect(chatProyectSelect, proyects, 'id', (p) => `#${p.id} · ${p.name}`);
+  await refreshChatMessages();
+}
+
+async function refreshChatMessages() {
+  chatMessageList.innerHTML = '';
+  const proyect_id = Number(chatProyectSelect.value);
+  if (!proyect_id) return;
+  const res = await toProcess('Chat', 'listChatMessages', [proyect_id], 'proyectos');
+  if (!res.ok) { showChatMsg(res.data.msg || 'Error.', false); return; }
+  renderChatMessages(res.data.data);
+}
+
+// Pinta el hilo del chat: burbujas propias a la derecha, del resto a la izquierda.
+function renderChatMessages(rows) {
+  if (!rows.length) {
+    const empty = document.createElement('p');
+    empty.className = 'hint';
+    empty.textContent = 'Todavía no hay mensajes en este chat. ¡Escribe el primero!';
+    chatMessageList.appendChild(empty);
+    return;
+  }
+  for (const m of rows) {
+    const own = m.sender_user_id === currentSession.user_id;
+    const item = document.createElement('div');
+    item.className = 'item notif-item chat-msg' + (own ? ' own' : '');
+    const meta = document.createElement('div');
+    meta.className = 'notif-meta';
+    meta.textContent = `${own ? 'Tú' : m.sender} · ${m.created_at}`;
+    const body = document.createElement('div');
+    body.className = 'notif-body';
+    body.textContent = m.message;
+    item.appendChild(meta);
+    item.appendChild(body);
+    chatMessageList.appendChild(item);
+  }
+  chatMessageList.scrollTop = chatMessageList.scrollHeight;
+}
+
 // ---- Pestaña "Proyectos activos/culminados" (CU-15, líder) ----
 async function loadProyectStatus() {
   showProyectStatusMsg('');
@@ -1372,6 +1434,7 @@ const TABS = [
   { id: 'proyectMgmtBox',  label: 'Mantenimiento de proyectos',  load: loadProyectData,   sub: 'proyectos' },
   { id: 'activityMgmtBox', label: 'Gestión de actividades',      load: loadActivityData,  sub: 'proyectos' },
   { id: 'notifyBox',       label: 'Notificar al equipo',         load: loadNotifyData,    sub: 'proyectos' },
+  { id: 'chatBox',         label: 'Chat de equipo',              load: loadChatData,      sub: 'proyectos' },
   { id: 'proyectStatusBox',label: 'Proyectos activos/culminados',load: loadProyectStatus, sub: 'proyectos' },
   { id: 'progressBox',     label: 'Gráficas de avance',          load: loadProgress,      sub: 'proyectos' },
   { id: 'timesheetGeneralBox', label: 'Hoja de tiempo general',      load: loadTimesheetGeneral,   sub: 'proyectos' },
@@ -1815,6 +1878,24 @@ formNotify.addEventListener('submit', async (e) => {
   }
 });
 notifyProyectSelect.addEventListener('change', refreshNotifyList);
+
+// ---- Chat de equipo ----
+formChat.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const proyect_id = Number(chatProyectSelect.value);
+  const message = new FormData(formChat).get('chat_message');
+  const { ok, data } = await toProcess('Chat', 'sendChatMessage', { proyect_id, message }, 'proyectos');
+  if (ok) {
+    formChat.reset();
+    showChatMsg('');
+    refreshChatMessages();
+  } else if (data.errors && data.errors.length) {
+    showChatMsg('• ' + data.errors.join('\n• '), false);
+  } else {
+    showChatMsg(data.msg || 'Error.', false);
+  }
+});
+chatProyectSelect.addEventListener('change', refreshChatMessages);
 
 // ---- Reportes de proyectos (CU-14 / CU-15, líder) ----
 proyectStatusFilter.addEventListener('change', refreshProyectStatusList);

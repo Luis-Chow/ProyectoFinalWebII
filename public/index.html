@@ -403,6 +403,23 @@
             <div id="myNotifList" class="list"></div>
           </section>
 
+          <!-- Chat por equipos (líder y empleado): un hilo de mensajes por proyecto. -->
+          <section id="chatBox" class="tabpanel hidden">
+            <h2>Chat de equipo</h2>
+            <p class="hint">Conversa con el equipo del proyecto que elijas.</p>
+            <div class="cascade">
+              <label>Proyecto
+                <select id="chatProyectSelect"></select>
+              </label>
+            </div>
+            <p id="chatMsg" class="msg"></p>
+            <div id="chatMessageList" class="list chat-thread"></div>
+            <form id="formChat" class="form chat-form">
+              <textarea name="chat_message" rows="2" maxlength="500" required placeholder="Escribe un mensaje para el equipo…"></textarea>
+              <button type="submit">Enviar</button>
+            </form>
+          </section>
+
           <!-- Proyectos activos/culminados (CU-15, líder): listado agrupado por estado. -->
           <section id="proyectStatusBox" class="tabpanel hidden">
             <h2>Proyectos activos / culminados</h2>
