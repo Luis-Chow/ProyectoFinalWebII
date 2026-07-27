@@ -296,6 +296,61 @@
     "seedPersonChargeMaria": "INSERT INTO person_charge (person_id, charge_id) VALUES (4, 2) ON CONFLICT (person_id, charge_id) DO NOTHING",
 
     "seedPersonUserAdmin": "INSERT INTO person_user (person_id, user_id) SELECT 1, u.user_id FROM \"user\" u WHERE u.user_na = 'admin1' AND NOT EXISTS (SELECT 1 FROM person_user pu WHERE pu.person_id = 1)",
-    "seedPersonUserEmpleado": "INSERT INTO person_user (person_id, user_id) SELECT 2, u.user_id FROM \"user\" u WHERE u.user_na = 'empleado1' AND NOT EXISTS (SELECT 1 FROM person_user pu WHERE pu.person_id = 2)"
+    "seedPersonUserEmpleado": "INSERT INTO person_user (person_id, user_id) SELECT 2, u.user_id FROM \"user\" u WHERE u.user_na = 'empleado1' AND NOT EXISTS (SELECT 1 FROM person_user pu WHERE pu.person_id = 2)",
+
+    "seedProyectRRHH": "INSERT INTO proyect (status_id, name) VALUES (1, 'Portal de Recursos Humanos')",
+    "seedProyectMigracion": "INSERT INTO proyect (status_id, name) VALUES (1, 'Migración a la Nube')",
+    "seedProyectFacturacion": "INSERT INTO proyect (status_id, name) VALUES (3, 'Sistema de Facturación')",
+
+    "seedProyectRoleRRHHLider": "INSERT INTO proyect_role (proyect_id, name) SELECT id, 'Líder' FROM proyect WHERE name = 'Portal de Recursos Humanos'",
+    "seedProyectRoleRRHHDesarrollador": "INSERT INTO proyect_role (proyect_id, name) SELECT id, 'Desarrollador' FROM proyect WHERE name = 'Portal de Recursos Humanos'",
+    "seedProyectRoleRRHHDocumentista": "INSERT INTO proyect_role (proyect_id, name) SELECT id, 'Documentista' FROM proyect WHERE name = 'Portal de Recursos Humanos'",
+    "seedProyectRoleRRHHAnalista": "INSERT INTO proyect_role (proyect_id, name) SELECT id, 'Analista' FROM proyect WHERE name = 'Portal de Recursos Humanos'",
+    "seedProyectRoleMigracionLider": "INSERT INTO proyect_role (proyect_id, name) SELECT id, 'Líder' FROM proyect WHERE name = 'Migración a la Nube'",
+    "seedProyectRoleMigracionDesarrollador": "INSERT INTO proyect_role (proyect_id, name) SELECT id, 'Desarrollador' FROM proyect WHERE name = 'Migración a la Nube'",
+    "seedProyectRoleFacturacionLider": "INSERT INTO proyect_role (proyect_id, name) SELECT id, 'Líder' FROM proyect WHERE name = 'Sistema de Facturación'",
+    "seedProyectRoleFacturacionDocumentista": "INSERT INTO proyect_role (proyect_id, name) SELECT id, 'Documentista' FROM proyect WHERE name = 'Sistema de Facturación'",
+    "seedProyectRoleFacturacionAnalista": "INSERT INTO proyect_role (proyect_id, name) SELECT id, 'Analista' FROM proyect WHERE name = 'Sistema de Facturación'",
+
+    "seedMemberRRHHLuis": "INSERT INTO proyect_role_person (proyect_role_id, person_id) SELECT pr.id, 1 FROM proyect_role pr INNER JOIN proyect p ON p.id = pr.proyect_id WHERE p.name = 'Portal de Recursos Humanos' AND pr.name = 'Líder'",
+    "seedMemberRRHHRonald": "INSERT INTO proyect_role_person (proyect_role_id, person_id) SELECT pr.id, 2 FROM proyect_role pr INNER JOIN proyect p ON p.id = pr.proyect_id WHERE p.name = 'Portal de Recursos Humanos' AND pr.name = 'Desarrollador'",
+    "seedMemberRRHHMaria": "INSERT INTO proyect_role_person (proyect_role_id, person_id) SELECT pr.id, 4 FROM proyect_role pr INNER JOIN proyect p ON p.id = pr.proyect_id WHERE p.name = 'Portal de Recursos Humanos' AND pr.name = 'Documentista'",
+    "seedMemberRRHHJuan": "INSERT INTO proyect_role_person (proyect_role_id, person_id) SELECT pr.id, 3 FROM proyect_role pr INNER JOIN proyect p ON p.id = pr.proyect_id WHERE p.name = 'Portal de Recursos Humanos' AND pr.name = 'Analista'",
+    "seedMemberMigracionLuis": "INSERT INTO proyect_role_person (proyect_role_id, person_id) SELECT pr.id, 1 FROM proyect_role pr INNER JOIN proyect p ON p.id = pr.proyect_id WHERE p.name = 'Migración a la Nube' AND pr.name = 'Líder'",
+    "seedMemberMigracionRonald": "INSERT INTO proyect_role_person (proyect_role_id, person_id) SELECT pr.id, 2 FROM proyect_role pr INNER JOIN proyect p ON p.id = pr.proyect_id WHERE p.name = 'Migración a la Nube' AND pr.name = 'Desarrollador'",
+    "seedMemberFacturacionLuis": "INSERT INTO proyect_role_person (proyect_role_id, person_id) SELECT pr.id, 1 FROM proyect_role pr INNER JOIN proyect p ON p.id = pr.proyect_id WHERE p.name = 'Sistema de Facturación' AND pr.name = 'Líder'",
+    "seedMemberFacturacionMaria": "INSERT INTO proyect_role_person (proyect_role_id, person_id) SELECT pr.id, 4 FROM proyect_role pr INNER JOIN proyect p ON p.id = pr.proyect_id WHERE p.name = 'Sistema de Facturación' AND pr.name = 'Documentista'",
+    "seedMemberFacturacionJuan": "INSERT INTO proyect_role_person (proyect_role_id, person_id) SELECT pr.id, 3 FROM proyect_role pr INNER JOIN proyect p ON p.id = pr.proyect_id WHERE p.name = 'Sistema de Facturación' AND pr.name = 'Analista'",
+
+    "seedActivityRRHHDiseno": "INSERT INTO activity (proyect_id, name, description, hours, charge_id, status_id) SELECT id, 'Diseñar interfaz de usuario', 'Crear los mockups y prototipos de las pantallas principales del portal.', 40, 3, 1 FROM proyect WHERE name = 'Portal de Recursos Humanos'",
+    "seedActivityRRHHManual": "INSERT INTO activity (proyect_id, name, description, hours, charge_id, status_id) SELECT id, 'Redactar manual de usuario', 'Documentar el uso del portal para los empleados.', 20, 2, 1 FROM proyect WHERE name = 'Portal de Recursos Humanos'",
+    "seedActivityRRHHRequerimientos": "INSERT INTO activity (proyect_id, name, description, hours, charge_id, status_id) SELECT id, 'Analizar requerimientos del sistema', 'Levantar y analizar los requerimientos funcionales del portal.', 25, 4, 1 FROM proyect WHERE name = 'Portal de Recursos Humanos'",
+    "seedActivityMigracionServidores": "INSERT INTO activity (proyect_id, name, description, hours, charge_id, status_id) SELECT id, 'Configurar servidores en la nube', 'Aprovisionar y configurar los servidores en el proveedor cloud.', 35, 3, 1 FROM proyect WHERE name = 'Migración a la Nube'",
+    "seedActivityMigracionBD": "INSERT INTO activity (proyect_id, name, description, hours, charge_id, status_id) SELECT id, 'Migrar base de datos a la nube', 'Migrar la base de datos on-premise al proveedor cloud.', 30, 3, 1 FROM proyect WHERE name = 'Migración a la Nube'",
+    "seedActivityFacturacionDocumentacion": "INSERT INTO activity (proyect_id, name, description, hours, charge_id, status_id) SELECT id, 'Documentar proceso de facturación', 'Elaborar el manual del proceso de facturación electrónica.', 15, 2, 1 FROM proyect WHERE name = 'Sistema de Facturación'",
+    "seedActivityFacturacionImpuestos": "INSERT INTO activity (proyect_id, name, description, hours, charge_id, status_id) SELECT id, 'Revisar cálculos de impuestos', 'Verificar la correcta aplicación de impuestos en las facturas.', 18, 4, 1 FROM proyect WHERE name = 'Sistema de Facturación'",
+
+    "seedAssignRRHHDiseno": "INSERT INTO activity_assignment (activity_id, person_id) SELECT a.id, 2 FROM activity a INNER JOIN proyect p ON p.id = a.proyect_id WHERE p.name = 'Portal de Recursos Humanos' AND a.name = 'Diseñar interfaz de usuario'",
+    "seedAssignRRHHManual": "INSERT INTO activity_assignment (activity_id, person_id) SELECT a.id, 4 FROM activity a INNER JOIN proyect p ON p.id = a.proyect_id WHERE p.name = 'Portal de Recursos Humanos' AND a.name = 'Redactar manual de usuario'",
+    "seedAssignRRHHRequerimientos": "INSERT INTO activity_assignment (activity_id, person_id) SELECT a.id, 3 FROM activity a INNER JOIN proyect p ON p.id = a.proyect_id WHERE p.name = 'Portal de Recursos Humanos' AND a.name = 'Analizar requerimientos del sistema'",
+    "seedAssignMigracionServidores": "INSERT INTO activity_assignment (activity_id, person_id) SELECT a.id, 2 FROM activity a INNER JOIN proyect p ON p.id = a.proyect_id WHERE p.name = 'Migración a la Nube' AND a.name = 'Configurar servidores en la nube'",
+    "seedAssignFacturacionDocumentacion": "INSERT INTO activity_assignment (activity_id, person_id) SELECT a.id, 4 FROM activity a INNER JOIN proyect p ON p.id = a.proyect_id WHERE p.name = 'Sistema de Facturación' AND a.name = 'Documentar proceso de facturación'",
+    "seedAssignFacturacionImpuestos": "INSERT INTO activity_assignment (activity_id, person_id) SELECT a.id, 3 FROM activity a INNER JOIN proyect p ON p.id = a.proyect_id WHERE p.name = 'Sistema de Facturación' AND a.name = 'Revisar cálculos de impuestos'",
+
+    "seedReportRRHHDiseno1": "INSERT INTO report (activity_id, person_id, percentage, description, completed) SELECT a.id, 2, 50, 'Se completó el wireframe inicial de las pantallas principales.', false FROM activity a INNER JOIN proyect p ON p.id = a.proyect_id WHERE p.name = 'Portal de Recursos Humanos' AND a.name = 'Diseñar interfaz de usuario'",
+    "seedReportRRHHDiseno2": "INSERT INTO report (activity_id, person_id, percentage, description, completed) SELECT a.id, 2, 80, 'Se ajustaron los estilos y la navegación según el feedback del equipo.', false FROM activity a INNER JOIN proyect p ON p.id = a.proyect_id WHERE p.name = 'Portal de Recursos Humanos' AND a.name = 'Diseñar interfaz de usuario'",
+    "seedReportRRHHManual": "INSERT INTO report (activity_id, person_id, percentage, description, completed) SELECT a.id, 4, 60, 'Se redactó la primera mitad del manual con capturas de pantalla.', false FROM activity a INNER JOIN proyect p ON p.id = a.proyect_id WHERE p.name = 'Portal de Recursos Humanos' AND a.name = 'Redactar manual de usuario'",
+    "seedReportRRHHRequerimientos": "INSERT INTO report (activity_id, person_id, percentage, description, completed) SELECT a.id, 3, 100, 'Se finalizó el levantamiento y análisis de todos los requerimientos.', true FROM activity a INNER JOIN proyect p ON p.id = a.proyect_id WHERE p.name = 'Portal de Recursos Humanos' AND a.name = 'Analizar requerimientos del sistema'",
+    "seedReportMigracionServidores": "INSERT INTO report (activity_id, person_id, percentage, description, completed) SELECT a.id, 2, 70, 'Se aprovisionaron los servidores y se configuró la red.', false FROM activity a INNER JOIN proyect p ON p.id = a.proyect_id WHERE p.name = 'Migración a la Nube' AND a.name = 'Configurar servidores en la nube'",
+    "seedReportFacturacionDocumentacion": "INSERT INTO report (activity_id, person_id, percentage, description, completed) SELECT a.id, 4, 100, 'Se completó el manual del proceso de facturación electrónica.', true FROM activity a INNER JOIN proyect p ON p.id = a.proyect_id WHERE p.name = 'Sistema de Facturación' AND a.name = 'Documentar proceso de facturación'",
+    "seedReportFacturacionImpuestos": "INSERT INTO report (activity_id, person_id, percentage, description, completed) SELECT a.id, 3, 100, 'Se verificó la correcta aplicación de impuestos en todas las facturas.', true FROM activity a INNER JOIN proyect p ON p.id = a.proyect_id WHERE p.name = 'Sistema de Facturación' AND a.name = 'Revisar cálculos de impuestos'",
+
+    "seedCompleteRRHHRequerimientos": "UPDATE activity SET status_id = 3 WHERE id = (SELECT a.id FROM activity a INNER JOIN proyect p ON p.id = a.proyect_id WHERE p.name = 'Portal de Recursos Humanos' AND a.name = 'Analizar requerimientos del sistema')",
+    "seedCompleteFacturacionDocumentacion": "UPDATE activity SET status_id = 3 WHERE id = (SELECT a.id FROM activity a INNER JOIN proyect p ON p.id = a.proyect_id WHERE p.name = 'Sistema de Facturación' AND a.name = 'Documentar proceso de facturación')",
+    "seedCompleteFacturacionImpuestos": "UPDATE activity SET status_id = 3 WHERE id = (SELECT a.id FROM activity a INNER JOIN proyect p ON p.id = a.proyect_id WHERE p.name = 'Sistema de Facturación' AND a.name = 'Revisar cálculos de impuestos')",
+
+    "seedNotifRRHH1": "INSERT INTO team_notification (proyect_id, sender_user_id, message) SELECT p.id, u.user_id, 'Bienvenidos al equipo. Por favor registren su avance semanalmente en la hoja de tiempo.' FROM proyect p, \"user\" u WHERE p.name = 'Portal de Recursos Humanos' AND u.user_na = 'admin1'",
+    "seedNotifRRHH2": "INSERT INTO team_notification (proyect_id, sender_user_id, message) SELECT p.id, u.user_id, 'Ya se definieron los mockups iniciales, revisen el diseño antes de la próxima reunión.' FROM proyect p, \"user\" u WHERE p.name = 'Portal de Recursos Humanos' AND u.user_na = 'admin1'",
+    "seedNotifMigracion": "INSERT INTO team_notification (proyect_id, sender_user_id, message) SELECT p.id, u.user_id, 'Recuerden actualizar el estado de la migración cada viernes.' FROM proyect p, \"user\" u WHERE p.name = 'Migración a la Nube' AND u.user_na = 'admin1'"
   }
 }
