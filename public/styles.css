@@ -194,7 +194,9 @@ button[type="submit"]:hover,
 
 .item {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
+  gap: 6px;
   padding: 8px 12px;
   background: #3a3b3c;
   border-radius: 8px;
@@ -240,6 +242,7 @@ button[type="submit"]:hover,
 
 .row-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
