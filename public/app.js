@@ -109,6 +109,17 @@ const progressMsg = $('#progressMsg');
 const progressOverall = $('#progressOverall');
 const progressChart = $('#progressChart');
 
+// ---- Hoja de tiempo (CU-12/CU-13) ----
+const tsGeneralFrom = $('#tsGeneralFrom');
+const tsGeneralTo = $('#tsGeneralTo');
+const tsGeneralMsg = $('#tsGeneralMsg');
+const tsGeneralList = $('#tsGeneralList');
+const tsPersonSelect = $('#tsPersonSelect');
+const tsPersonFrom = $('#tsPersonFrom');
+const tsPersonTo = $('#tsPersonTo');
+const tsPersonMsg = $('#tsPersonMsg');
+const tsPersonList = $('#tsPersonList');
+
 // Estado de la sesion en el cliente.
 let currentSession = null;
 let currentProfiles = [];
@@ -145,6 +156,8 @@ const showNotifyMsg = msgIn(notifyMsg);
 const showMyNotifMsg = msgIn(myNotifMsg);
 const showProyectStatusMsg = msgIn(proyectStatusMsg);
 const showProgressMsg = msgIn(progressMsg);
+const showTsGeneralMsg = msgIn(tsGeneralMsg);
+const showTsPersonMsg = msgIn(tsPersonMsg);
 
 // Rellena un <select> genérico a partir de filas: value = fila[valueKey], texto = labelFn(fila).
 // Con `placeholder` antepone una opción vacía (para "elige…" o "sin persona").
@@ -1257,6 +1270,92 @@ async function renderProgress() {
   }
 }
 
+// ---- Pestaña "Hoja de tiempo general" (CU-12, líder) ----
+// Reutiliza los reportes de avance (tabla report, la misma de "Reportes"/"Mis actividades"):
+// aquí solo se listan TODOS, con filtro opcional por rango de fechas (igual que Auditoría).
+async function loadTimesheetGeneral() {
+  tsGeneralFrom.value = '';
+  tsGeneralTo.value = '';
+  showTsGeneralMsg('');
+  await refreshTimesheetGeneral();
+}
+
+async function refreshTimesheetGeneral() {
+  showTsGeneralMsg('');
+  tsGeneralList.innerHTML = '';
+  const params = { dateFrom: tsGeneralFrom.value || null, dateTo: tsGeneralTo.value || null, limit: 500 };
+  const res = await toProcess('Report', 'listTimesheetGeneral', params, 'proyectos');
+  if (!res.ok) {
+    showTsGeneralMsg(res.data.msg || 'No tienes permiso para ver la hoja de tiempo.', false);
+    return;
+  }
+  const rows = res.data.data || [];
+  if (rows.length) showTsGeneralMsg(`${rows.length} reporte(s).`, true);
+  renderTimesheetItems(tsGeneralList, rows, true);
+}
+
+// ---- Pestaña "Hoja de tiempo de un empleado" (CU-13, líder) ----
+async function loadTimesheetByPerson() {
+  showTsPersonMsg('');
+  tsPersonList.innerHTML = '';
+  tsPersonFrom.value = '';
+  tsPersonTo.value = '';
+  // Mismo listado de personas (con sus cargos) que usa Mantenimiento de proyectos.
+  const persons = await toProcess('Proyect', 'listPersons', [], 'proyectos');
+  fillSelect(tsPersonSelect, persons.ok ? persons.data.data : [], 'person_id',
+    (p) => `${p.person_na} ${p.person_ln} · ${p.charges}`, '— Selecciona un empleado —');
+}
+
+async function refreshTimesheetByPerson() {
+  showTsPersonMsg('');
+  tsPersonList.innerHTML = '';
+  const person_id = Number(tsPersonSelect.value);
+  if (!person_id) { showTsPersonMsg('Elige un empleado.', false); return; }
+  const params = { person_id, dateFrom: tsPersonFrom.value || null, dateTo: tsPersonTo.value || null, limit: 500 };
+  const res = await toProcess('Report', 'listTimesheetByPerson', params, 'proyectos');
+  if (!res.ok) { showTsPersonMsg(res.data.msg || 'Error.', false); return; }
+  const rows = res.data.data || [];
+  if (rows.length) showTsPersonMsg(`${rows.length} reporte(s).`, true);
+  renderTimesheetItems(tsPersonList, rows, false);
+}
+
+// Pinta una lista de reportes de avance (hoja de tiempo). showPerson = incluir el nombre
+// de la persona (hoja general); en la de un empleado ya se sabe quién es.
+function renderTimesheetItems(container, rows, showPerson) {
+  if (!rows.length) {
+    const empty = document.createElement('p');
+    empty.className = 'hint';
+    empty.textContent = 'No hay reportes de avance.';
+    container.appendChild(empty);
+    return;
+  }
+  for (const r of rows) {
+    const item = document.createElement('div');
+    item.className = 'item';
+
+    const left = document.createElement('span');
+    const porcentaje = document.createElement('b');
+    porcentaje.textContent = `${r.percentage}%`;
+    left.appendChild(porcentaje);
+    if (showPerson) left.append(` · ${r.person_na} ${r.person_ln}`);
+
+    if (r.completed) {
+      const badge = document.createElement('span');
+      badge.className = 'tag';
+      badge.textContent = 'Completado';
+      left.appendChild(badge);
+    }
+
+    const sub = document.createElement('span');
+    sub.className = 'item-sub';
+    sub.textContent = `${r.created_at} · ${r.proyect_name} · ${r.activity_name} · ${r.description}`;
+    left.appendChild(sub);
+
+    item.appendChild(left);
+    container.appendChild(item);
+  }
+}
+
 // Definicion de pestañas: etiqueta, permiso que las habilita, y carga de datos al abrir.
 // Cada pestaña corresponde a una OPCION de menu (option_de = id de la pestaña). Su
 // visibilidad la decide permission_option (session.visibleOptions); las acciones de adentro
@@ -1275,6 +1374,8 @@ const TABS = [
   { id: 'notifyBox',       label: 'Notificar al equipo',         load: loadNotifyData,    sub: 'proyectos' },
   { id: 'proyectStatusBox',label: 'Proyectos activos/culminados',load: loadProyectStatus, sub: 'proyectos' },
   { id: 'progressBox',     label: 'Gráficas de avance',          load: loadProgress,      sub: 'proyectos' },
+  { id: 'timesheetGeneralBox', label: 'Hoja de tiempo general',      load: loadTimesheetGeneral,   sub: 'proyectos' },
+  { id: 'timesheetByPersonBox', label: 'Hoja de tiempo de un empleado', load: loadTimesheetByPerson, sub: 'proyectos' },
   { id: 'myActivitiesBox', label: 'Mis actividades',             load: loadMyActivities,  sub: 'proyectos' },
   { id: 'myNotifBox',      label: 'Mis notificaciones',          load: loadMyNotif,       sub: 'proyectos' }
 ];
@@ -1719,6 +1820,23 @@ notifyProyectSelect.addEventListener('change', refreshNotifyList);
 proyectStatusFilter.addEventListener('change', refreshProyectStatusList);
 $('#btnLoadProgress').addEventListener('click', renderProgress);
 progressProyectSelect.addEventListener('change', renderProgress);
+
+// ---- Hoja de tiempo general (CU-12, líder) ----
+$('#btnTsGeneralFilter').addEventListener('click', refreshTimesheetGeneral);
+$('#btnTsGeneralClear').addEventListener('click', () => {
+  tsGeneralFrom.value = '';
+  tsGeneralTo.value = '';
+  refreshTimesheetGeneral();
+});
+
+// ---- Hoja de tiempo de un empleado (CU-13, líder) ----
+tsPersonSelect.addEventListener('change', refreshTimesheetByPerson);
+$('#btnTsPersonFilter').addEventListener('click', refreshTimesheetByPerson);
+$('#btnTsPersonClear').addEventListener('click', () => {
+  tsPersonFrom.value = '';
+  tsPersonTo.value = '';
+  refreshTimesheetByPerson();
+});
 
 // ---- Cascada de "Asignar permisos" ----
 // Cambiar de perfil recarga métodos y opciones (con el nuevo estado granted).

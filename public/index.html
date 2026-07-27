@@ -433,6 +433,50 @@
             <div id="progressChart" class="chart"></div>
           </section>
 
+          <!-- Hoja de tiempo general (CU-12, líder): todos los reportes de avance del equipo.
+               Reutiliza los reportes de CU-10/11 (tabla report), solo lectura con filtro por fecha. -->
+          <section id="timesheetGeneralBox" class="tabpanel hidden">
+            <h2>Hoja de tiempo general</h2>
+            <p class="hint">Todos los reportes de avance registrados por el equipo. Filtra por rango de fechas si lo necesitas.</p>
+            <div class="cascade">
+              <label>Desde
+                <input type="date" id="tsGeneralFrom">
+              </label>
+              <label>Hasta
+                <input type="date" id="tsGeneralTo">
+              </label>
+            </div>
+            <div class="cascade-actions">
+              <button id="btnTsGeneralFilter" type="button">Filtrar</button>
+              <button id="btnTsGeneralClear" type="button" class="secondary">Limpiar</button>
+            </div>
+            <p id="tsGeneralMsg" class="msg"></p>
+            <div id="tsGeneralList" class="list"></div>
+          </section>
+
+          <!-- Hoja de tiempo de un empleado (CU-13, líder): historial de avances de UNA persona. -->
+          <section id="timesheetByPersonBox" class="tabpanel hidden">
+            <h2>Hoja de tiempo de un empleado</h2>
+            <p class="hint">Elige un empleado para ver su historial de avances.</p>
+            <div class="cascade">
+              <label>Empleado
+                <select id="tsPersonSelect"></select>
+              </label>
+              <label>Desde
+                <input type="date" id="tsPersonFrom">
+              </label>
+              <label>Hasta
+                <input type="date" id="tsPersonTo">
+              </label>
+            </div>
+            <div class="cascade-actions">
+              <button id="btnTsPersonFilter" type="button">Filtrar</button>
+              <button id="btnTsPersonClear" type="button" class="secondary">Limpiar</button>
+            </div>
+            <p id="tsPersonMsg" class="msg"></p>
+            <div id="tsPersonList" class="list"></div>
+          </section>
+
           <!-- Mensaje cuando el perfil activo no tiene acciones en este subsistema. -->
           <p id="noActions" class="hint hidden">Este perfil no tiene acciones disponibles en este subsistema.</p>
         </div>

@@ -446,6 +446,29 @@ const businessMethods = {
         const rows = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'sendNotification'),
             [proyect_id, sender_user_id, cleanMessage]);
         return { id: rows[0].id };
+    },
+
+    // ============ REPORTES: HOJA DE TIEMPO (CU-12 / CU-13) ============
+    // La "hoja de tiempo" es la tabla report ya existente (cada notificacion de avance de
+    // CU-10/11): estos metodos solo la consultan con filtros, no crean nada nuevo.
+
+    // CU-12: hoja de tiempo GENERAL (todos los reportes de todo el equipo), con filtro
+    // opcional por rango de fechas. Mismo patron que security.Audit.listAudit.
+    'proyectos.Report.listTimesheetGeneral': async (ctx) => {
+        const { dateFrom = null, dateTo = null, limit = 500 } = ctx.params || {};
+        const rows = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'listTimesheetGeneral'),
+            [dateFrom || null, dateTo || null, Number(limit) || 500]);
+        return rows;
+    },
+
+    // CU-13: hoja de tiempo de UN empleado (el lider elige la persona), con el mismo filtro
+    // opcional de fechas.
+    'proyectos.Report.listTimesheetByPerson': async (ctx) => {
+        const { person_id, dateFrom = null, dateTo = null, limit = 500 } = ctx.params || {};
+        if (!person_id) throw new AppError(400, 'Debes elegir un empleado.');
+        const rows = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'listTimesheetByPerson'),
+            [person_id, dateFrom || null, dateTo || null, Number(limit) || 500]);
+        return rows;
     }
 };
 
