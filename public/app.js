@@ -82,8 +82,6 @@ const assignMsg = $('#assignMsg');
 const assigneeList = $('#assigneeList');
 const activityReportBlock = $('#activityReportBlock');
 const activityReportTitle = $('#activityReportTitle');
-const formLeaderReport = $('#formLeaderReport');
-const leaderReportPerson = $('#leaderReportPerson');
 const reportMsg = $('#reportMsg');
 const reportList = $('#reportList');
 
@@ -753,14 +751,6 @@ async function selectActivityForReports(a) {
   activityReportBlock.classList.remove('hidden');
   activityAssignBlock.classList.add('hidden');
   showReportMsg('');
-  formLeaderReport.reset();
-  // El selector de persona para el reporte = las personas asignadas a la actividad.
-  const res = await toProcess('Activity', 'listActivityAssignees', [a.id], 'proyectos');
-  const assignees = res.ok ? res.data.data : [];
-  fillSelect(leaderReportPerson, assignees, 'person_id', (p) => `${p.person_na} ${p.person_ln}`);
-  // Sin personas asignadas no se puede reportar: se oculta el formulario.
-  formLeaderReport.classList.toggle('hidden', assignees.length === 0);
-  if (!assignees.length) showReportMsg('Asigna al menos una persona para poder registrar avances.', false);
   refreshReportList();
 }
 
@@ -823,10 +813,8 @@ async function loadMyActivities() {
 async function refreshMyActivitiesList() {
   myActivitiesList.innerHTML = '';
 
-  // El person_id viene en la sesión (person_user). El empleado NO puede listar todas las
-  // personas (eso es del admin); por eso usamos su propia persona ya resuelta en el login.
-  const myPersonId = currentSession.person_id;
-  if (!myPersonId) {
+  // El person_id lo resuelve el servidor desde la sesión (person_user); el cliente no lo envía.
+  if (!currentSession.person_id) {
     const empty = document.createElement('p');
     empty.className = 'hint';
     empty.textContent = 'No tienes una persona vinculada a tu cuenta. Contacta al administrador.';
@@ -834,7 +822,7 @@ async function refreshMyActivitiesList() {
     return;
   }
 
-  const res = await toProcess('Activity', 'getMyActivities', [myPersonId], 'proyectos');
+  const res = await toProcess('Activity', 'getMyActivities', [], 'proyectos');
   if (!res.ok) {
     showMyReportMsg(res.data.msg || 'Error al listar tus actividades.', false);
     return;
@@ -1134,7 +1122,7 @@ async function loadMyNotif() {
   showMyNotifMsg('');
   myNotifList.innerHTML = '';
   if (!currentSession.person_id) { showMyNotifMsg('No tienes una persona vinculada a tu cuenta.', false); return; }
-  const res = await toProcess('Notification', 'getMyNotifications', [currentSession.person_id], 'proyectos');
+  const res = await toProcess('Notification', 'getMyNotifications', [], 'proyectos');
   if (!res.ok) { showMyNotifMsg(res.data.msg || 'Error.', false); return; }
   renderNotifItems(myNotifList, res.data.data, true);
 }
@@ -1178,7 +1166,7 @@ async function loadChatData() {
   } else {
     // El empleado solo ve los proyectos donde participa (Chat.listMyProyects).
     if (!currentSession.person_id) { showChatMsg('No tienes una persona vinculada a tu cuenta.', false); return; }
-    const res = await toProcess('Chat', 'listMyProyects', [currentSession.person_id], 'proyectos');
+    const res = await toProcess('Chat', 'listMyProyects', [], 'proyectos');
     proyects = res.ok ? res.data.data : [];
   }
   fillSelect(chatProyectSelect, proyects, 'id', (p) => `#${p.id} · ${p.name}`);
@@ -1794,33 +1782,6 @@ $('#btnCancelAssign').addEventListener('click', () => {
   activityAssignBlock.classList.add('hidden');
   currentActivity = null;
   showAssignMsg('');
-});
-
-// El líder registra el avance de una persona asignada (CU-11 también lo hace el propio
-// empleado desde "Mis actividades"). Reutiliza insertReport (valida el 50%-100%).
-formLeaderReport.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  if (!currentActivity) return;
-  const person_id = Number(leaderReportPerson.value);
-  if (!person_id) { showReportMsg('Selecciona la persona del avance.', false); return; }
-  const fd = new FormData(formLeaderReport);
-  const body = {
-    activity_id: currentActivity.id,
-    person_id,
-    percentage: parseInt(fd.get('lr_percentage')),
-    description: (fd.get('lr_description') || '').trim()
-  };
-  const { ok, data } = await toProcess('Activity', 'insertReport', body, 'proyectos');
-  if (ok) {
-    formLeaderReport.reset();
-    showReportMsg('Avance registrado.' + (data.data && data.data.completed ? ' ¡Actividad completada!' : ''), true);
-    refreshReportList();
-    refreshActivityList();
-  } else if (data.errors && data.errors.length) {
-    showReportMsg('• ' + data.errors.join('\n• '), false);
-  } else {
-    showReportMsg(data.msg || 'Error.', false);
-  }
 });
 
 $('#btnCloseReports').addEventListener('click', () => {

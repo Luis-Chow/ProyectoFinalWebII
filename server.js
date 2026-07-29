@@ -29,6 +29,14 @@ async function getSubsystems(profile_id) {
     return await global.dbc.exeQuery(global.dbc.getSentence('security', 'listAccessibleSubsystems'), [profile_id]);
 }
 
+// Revalida contra la BD que la cuenta sigue activa. La cookie de sesion no se entera sola
+// si un admin desactiva al usuario a mitad de sesion (setUserStatus solo bloquea el login).
+async function isUserActive(user_id) {
+    const STATUS_ACTIVO = 1;
+    const rows = await global.dbc.exeQuery(global.dbc.getSentence('security', 'getUserStatusById'), [user_id]);
+    return rows.length > 0 && rows[0].status_id === STATUS_ACTIVO;
+}
+
 // Auditoria centralizada de /toProcess: que metodo deja que accion en la tabla audit
 // (insert | update | delete).
 const AUDIT_ACTIONS = {
@@ -189,6 +197,10 @@ app.get('/me', async (req, res) => {
         return res.status(401).json({ msg: 'No hay sesión activa.' });
     }
     let data = ses.getDataSession();
+    if (!(await isUserActive(data.user_id))) {
+        await ses.logout();
+        return res.status(401).json({ msg: 'Tu cuenta fue desactivada. Debes iniciar sesión de nuevo.' });
+    }
     // Por si la sesion quedo sin perfil activo (caso raro): activar el primero.
     if (data.profile_id == null) {
         const profiles = await ses.getProfiles(data.user_id);
@@ -208,13 +220,18 @@ app.post('/toProcess', async (req, res) => {
         if (!ses.sessionExist()) {
             return res.status(401).json({ msg: 'Debe iniciar sesión.' });
         }
+        // 1b) ¿la cuenta sigue activa? (un admin pudo desactivarla a mitad de esta sesion)
+        const data = ses.getDataSession();
+        if (!(await isUserActive(data.user_id))) {
+            await ses.logout();
+            return res.status(401).json({ msg: 'Tu cuenta fue desactivada. Debes iniciar sesión de nuevo.' });
+        }
         // 2) ¿ya eligio perfil activo? Sin perfil no se pueden resolver permisos.
         if (!ses.hasActiveProfile()) {
             return res.status(403).json({ msg: 'Debe seleccionar un perfil.' });
         }
 
-        // 3) datos de la transaccion (j) y de la sesion
-        const data = ses.getDataSession();
+        // 3) datos de la transaccion (j)
         const j = {
             subsystem: req.body.subsystem,
             objectName: req.body.objectName,
@@ -227,8 +244,11 @@ app.post('/toProcess', async (req, res) => {
             return res.status(403).json({ msg: 'Acceso denegado.' });
         }
 
-        // 5) ejecuta el metodo (pasando la sesion)
-        const rows = await global.sec.exeMethod(j, data);
+        // 5) ejecuta el metodo (pasando la sesion + person_id, para los metodos ricos que
+        //    atan una accion a "quien la ejecuta" y no a lo que mande el cliente)
+        const personRow = await global.dbc.exeQuery(global.dbc.getSentence('security', 'getPersonIdByUser'), [data.user_id]);
+        const session = { ...data, person_id: personRow.length ? personRow[0].person_id : null };
+        const rows = await global.sec.exeMethod(j, session);
 
         // 6) auditoria de los metodos que modifican datos
         if (AUDIT_ACTIONS[j.methodName]) {
@@ -431,7 +451,7 @@ app.post('/toProcess', async (req, res) => {
             ['model', 'seedPermLiderUpdateActivity'],
             ['model', 'seedPermLiderListActivityAssignees'],
             ['model', 'seedPermLiderRemoveActivityAssignee'],
-            ['model', 'seedPermLiderInsertReport'],
+            ['model', 'seedPermLiderGetMyActivities'],
             ['model', 'seedPermLiderListCharges'],
             ['model', 'seedPermLiderListAssignableMembers'],
             ['model', 'seedPermLiderListTimesheetGeneral'],
@@ -441,6 +461,7 @@ app.post('/toProcess', async (req, res) => {
             ['model', 'seedPermOptLiderProyectos'],
             ['model', 'seedPermOptLiderActividades'],
             ['model', 'seedPermOptEmpleadoMisActividades'],
+            ['model', 'seedPermOptLiderMisActividades'],
             ['model', 'seedPermOptLiderNotificar'],
             ['model', 'seedPermOptEmpleadoMisNotif'],
             ['model', 'seedPermOptLiderProyectStatus'],

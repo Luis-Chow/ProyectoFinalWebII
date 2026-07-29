@@ -331,22 +331,10 @@
             </div>
 
             <!-- Bloque de reportes: aparece al pulsar "Reportes" en una actividad.
-                 El líder puede registrar el avance de una persona asignada (además del
-                 propio empleado en "Mis actividades") y ve el historial del equipo. -->
+                 Es solo de lectura para el líder: el avance de cada persona lo registra
+                 ella misma desde "Mis actividades". -->
             <div id="activityReportBlock" class="hidden">
               <h3 class="subhead" id="activityReportTitle">Reportes de avance</h3>
-              <form id="formLeaderReport" class="form">
-                <label>Persona asignada
-                  <select id="leaderReportPerson"></select>
-                </label>
-                <label>Porcentaje de avance (50% - 100%)
-                  <input type="number" name="lr_percentage" min="50" max="100" required>
-                </label>
-                <label>Descripción de lo realizado
-                  <textarea name="lr_description" rows="3" maxlength="1000" required></textarea>
-                </label>
-                <button type="submit">Registrar avance</button>
-              </form>
               <p id="reportMsg" class="msg"></p>
               <h4 class="subhead">Historial de reportes</h4>
               <div id="reportList" class="list"></div>

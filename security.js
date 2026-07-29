@@ -24,6 +24,27 @@ function validatePerson(params) {
     return { person_ci, person_na, person_ln, person_mail: person_mail || null, person_phone: person_phone || null };
 }
 
+// El rol dentro de un proyecto (proyect_role.name, texto libre elegido por el líder) debe
+// corresponder a un cargo real de la persona (person_charge) — mismo principio "según el
+// cargo" que ya aplica assignActivity. El nombre del cargo en la BD trae sufijo ("Líder
+// (senior)") distinto al del rol de proyecto ("Líder"), por eso se mapea por id, no por texto.
+const ROLE_TO_CHARGE = { 'Líder': 1, 'Documentista': 2, 'Desarrollador': 3, 'Analista': 4 };
+
+// Candado de propiedad: el perfil Líder de proyecto es el mismo para todos los proyectos,
+// pero cada proyecto tiene SU propio líder (proyect_role 'Líder'). Sin este candado,
+// cualquier usuario con el perfil podría gestionar (o borrar) el proyecto de otro líder.
+async function assertIsProyectLeader(proyect_id, session) {
+    const rows = await global.dbc.exeQuery(
+        global.dbc.getSentence('proyectos', 'getProyectLeaderPersonId'),
+        [proyect_id]
+    );
+    const leaderPersonId = rows.length ? rows[0].person_id : null;
+    const myPersonId = session && session.person_id;
+    if (!leaderPersonId || !myPersonId || Number(leaderPersonId) !== Number(myPersonId)) {
+        throw new AppError(403, 'Solo el líder de este proyecto puede realizar esta acción.');
+    }
+}
+
 // Metodos "ricos": funciones de servidor con validacion, valores forzados y transaccion.
 // Clave: subsystem.objectName.methodName. Si un metodo NO esta aqui, exeMethod cae al
 // comportamiento simple (ejecutar 1 sentencia SQL con los params del cliente).
@@ -231,6 +252,14 @@ const businessMethods = {
         const person = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'personExists'), [leader_person_id]);
         if (!person.length) throw new AppError(404, 'La persona elegida como líder no existe.');
 
+        const hasLiderCharge = await global.dbc.exeQuery(
+            global.dbc.getSentence('proyectos', 'personHasCharge'),
+            [leader_person_id, ROLE_TO_CHARGE['Líder']]
+        );
+        if (!(hasLiderCharge[0] && hasLiderCharge[0].has)) {
+            throw new AppError(409, 'La persona elegida como líder no tiene el cargo de Líder.');
+        }
+
         const STATUS_ACTIVO = 1;
         // Transaccion: proyecto + rol 'Líder' + persona enlazada se crean juntos, o nada.
         return await ctx.tx(async (q) => {
@@ -253,6 +282,8 @@ const businessMethods = {
 
         const proyect = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'getProyect'), [proyect_id]);
         if (!proyect.length) throw new AppError(404, 'El proyecto no existe.');
+        await assertIsProyectLeader(proyect_id, ctx.session);
+
         const STATUS_CULMINADO = 3;
         if (proyect[0].status_id === STATUS_CULMINADO) {
             throw new AppError(409, 'No puedes asignar miembros a un proyecto culminado.');
@@ -260,6 +291,15 @@ const businessMethods = {
 
         const person = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'personExists'), [person_id]);
         if (!person.length) throw new AppError(404, 'La persona no existe.');
+
+        // Según el cargo (mismo principio que assignActivity): el rol de proyecto elegido
+        // debe corresponder a un cargo real de la persona.
+        const chargeId = ROLE_TO_CHARGE[cleanRole];
+        if (!chargeId) throw new AppError(400, 'Rol no reconocido.');
+        const hasCharge = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'personHasCharge'), [person_id, chargeId]);
+        if (!(hasCharge[0] && hasCharge[0].has)) {
+            throw new AppError(409, `Esa persona no tiene el cargo de ${cleanRole}.`);
+        }
 
         const dup = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'memberExists'), [proyect_id, person_id]);
         if (dup[0] && dup[0].dup) throw new AppError(409, 'Esa persona ya es miembro del proyecto.');
@@ -285,8 +325,54 @@ const businessMethods = {
         }
         const proyect = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'getProyect'), [proyect_id]);
         if (!proyect.length) throw new AppError(404, 'El proyecto no existe.');
+        await assertIsProyectLeader(proyect_id, ctx.session);
         await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'setProyectStatus'), [proyect_id, status_id]);
         return { updated: true };
+    },
+
+    // CU-06/07: quitar un miembro del proyecto. Candado de propiedad (solo el líder del
+    // proyecto) + candado anti-bloqueo: no puedes quitar al único Líder (dejaría el
+    // proyecto sin nadie que lo administre).
+    'proyectos.Proyect.removeMember': async (ctx) => {
+        const [id] = ctx.params || [];
+        if (!id) throw new AppError(400, 'Falta el miembro a quitar.');
+
+        const rows = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'getProyectRolePerson'), [id]);
+        if (!rows.length) throw new AppError(404, 'Ese miembro no existe.');
+        const { proyect_id, role_name } = rows[0];
+
+        await assertIsProyectLeader(proyect_id, ctx.session);
+
+        if (role_name === 'Líder') {
+            const count = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'countProyectLeaders'), [proyect_id]);
+            if (count[0] && Number(count[0].n) <= 1) {
+                throw new AppError(409, 'No puedes quitar al único líder del proyecto.');
+            }
+        }
+
+        await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'removeMember'), [id]);
+        return { removed: true };
+    },
+
+    // CU-06: eliminar un proyecto. Candado de propiedad + candado de auditoría: no se puede
+    // borrar (destruye por CASCADE reportes/notificaciones/chat) si ya tiene historial —
+    // culmínalo en vez de eliminarlo, mismo espíritu que "no hay borrado" en el subsistema
+    // de seguridad (preserva la auditoría).
+    'proyectos.Proyect.deleteProyect': async (ctx) => {
+        const [proyect_id] = ctx.params || [];
+        if (!proyect_id) throw new AppError(400, 'Falta el proyecto.');
+
+        const proyect = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'getProyect'), [proyect_id]);
+        if (!proyect.length) throw new AppError(404, 'El proyecto no existe.');
+        await assertIsProyectLeader(proyect_id, ctx.session);
+
+        const history = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'proyectHasHistory'), [proyect_id]);
+        if (history[0] && history[0].has_history) {
+            throw new AppError(409, 'No puedes eliminar un proyecto con historial (reportes, notificaciones o chat). Cúlmínalo en su lugar.');
+        }
+
+        await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'deleteProyect'), [proyect_id]);
+        return { deleted: true };
     },
 
     // ============ ACTIVITIES ============
@@ -310,6 +396,12 @@ const businessMethods = {
         // Verificar que el proyecto existe y está activo
         const proyect = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'getProyect'), [proyect_id]);
         if (!proyect.length) throw new AppError(404, 'El proyecto no existe.');
+        await assertIsProyectLeader(proyect_id, ctx.session);
+
+        const STATUS_CULMINADO = 3;
+        if (proyect[0].status_id === STATUS_CULMINADO) {
+            throw new AppError(409, 'No puedes crear actividades en un proyecto culminado.');
+        }
 
         const rows = await global.dbc.exeQuery(
             global.dbc.getSentence('proyectos', 'insertActivity'),
@@ -333,6 +425,7 @@ const businessMethods = {
 
         const activity = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'getActivity'), [activity_id]);
         if (!activity.length) throw new AppError(404, 'La actividad no existe.');
+        await assertIsProyectLeader(activity[0].proyect_id, ctx.session);
 
         await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'updateActivity'),
             [activity_id, cleanName, cleanDescription, numHours, charge_id]);
@@ -352,6 +445,7 @@ const businessMethods = {
             [activity_id]
         );
         if (!activity.length) throw new AppError(404, 'La actividad no existe.');
+        await assertIsProyectLeader(activity[0].proyect_id, ctx.session);
 
         // Solo se pueden asignar actividades a MIEMBROS del proyecto (proyect_role_person).
         // Para incorporar a alguien primero hay que agregarlo como miembro (CU-07).
@@ -383,6 +477,27 @@ const businessMethods = {
         return { assigned: true };
     },
 
+    // Quitar a alguien de una actividad. Mismo candado de propiedad que assignActivity.
+    'proyectos.Activity.removeActivityAssignee': async (ctx) => {
+        const [id] = ctx.params || [];
+        if (!id) throw new AppError(400, 'Falta la asignación a quitar.');
+
+        const rows = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'getActivityAssignee'), [id]);
+        if (!rows.length) throw new AppError(404, 'Esa asignación no existe.');
+        await assertIsProyectLeader(rows[0].proyect_id, ctx.session);
+
+        await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'removeActivityAssignee'), [id]);
+        return { removed: true };
+    },
+
+    // CU-10/11: mis actividades asignadas. person_id SIEMPRE de la sesión (nunca del
+    // cliente) — si no, cualquiera podría pedir las actividades de otra persona.
+    'proyectos.Activity.getMyActivities': async (ctx) => {
+        const person_id = ctx.session && ctx.session.person_id;
+        if (!person_id) throw new AppError(400, 'No tienes una persona vinculada a tu cuenta.');
+        return await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'getMyActivities'), [person_id]);
+    },
+
     // CU-11: insertar reporte de avance (50-100%)
     'proyectos.Activity.insertReport': async (ctx) => {
         const { activity_id, person_id, percentage, description } = ctx.params || {};
@@ -407,6 +522,12 @@ const businessMethods = {
             [activity_id]
         );
         if (!activity.length) throw new AppError(404, 'La actividad no existe.');
+
+        const assignment = await global.dbc.exeQuery(
+            global.dbc.getSentence('proyectos', 'checkActivityAssignment'),
+            [activity_id, person_id]
+        );
+        if (!assignment.length) throw new AppError(403, 'Esta persona no está asignada a esta actividad.');
 
         const STATUS_CULMINADO = 3;
         const completed = numPercentage >= 100;
@@ -441,11 +562,20 @@ const businessMethods = {
 
         const proyect = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'getProyect'), [proyect_id]);
         if (!proyect.length) throw new AppError(404, 'El proyecto no existe.');
+        await assertIsProyectLeader(proyect_id, ctx.session);
 
         const sender_user_id = ctx.session && ctx.session.user_id;
         const rows = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'sendNotification'),
             [proyect_id, sender_user_id, cleanMessage]);
         return { id: rows[0].id };
+    },
+
+    // Mis notificaciones (empleado). person_id SIEMPRE de la sesión, mismo motivo que
+    // getMyActivities.
+    'proyectos.Notification.getMyNotifications': async (ctx) => {
+        const person_id = ctx.session && ctx.session.person_id;
+        if (!person_id) throw new AppError(400, 'No tienes una persona vinculada a tu cuenta.');
+        return await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'getMyNotifications'), [person_id]);
     },
 
     // ============ REPORTES: HOJA DE TIEMPO (CU-12 / CU-13) ============
@@ -504,9 +634,10 @@ const businessMethods = {
 
     // Proyectos donde el EMPLEADO participa (miembro o con actividad asignada), para que
     // elija con qué equipo chatear sin darle acceso a Proyect.listProyects (ese es del líder).
+    // person_id SIEMPRE de la sesión (nunca del cliente), mismo motivo que getMyActivities.
     'proyectos.Chat.listMyProyects': async (ctx) => {
-        const [person_id] = ctx.params || [];
-        if (!person_id) throw new AppError(400, 'Falta la persona.');
+        const person_id = ctx.session && ctx.session.person_id;
+        if (!person_id) throw new AppError(400, 'No tienes una persona vinculada a tu cuenta.');
         const rows = await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'listMyProyects'), [person_id]);
         return rows;
     }
