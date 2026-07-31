@@ -63,7 +63,12 @@
                 </label>
                 <small class="hint">Mínimo 8 caracteres, sin espacios, con mayúscula, minúscula y número.</small>
                 <label>Persona (opcional)
-                  <select id="registerPersonSelect"></select>
+                  <div class="combobox" id="registerPersonCombo">
+                    <input type="text" id="registerPersonSearch" autocomplete="off"
+                           placeholder="Busca por nombre, apellido, cédula, correo o teléfono…">
+                    <input type="hidden" id="registerPersonId">
+                    <div class="combobox-results hidden" id="registerPersonResults"></div>
+                  </div>
                 </label>
                 <small class="hint">Vincula la cuenta a una persona de la nómina sin cuenta. Puedes hacerlo también después.</small>
                 <button type="submit">Crear cuenta</button>
@@ -75,6 +80,24 @@
             <input type="search" id="userSearch" class="search-input" placeholder="Buscar por usuario, nombre o cédula…" autocomplete="off">
             <p id="usersMsg" class="msg"></p>
             <div id="usersList" class="list"></div>
+
+            <!-- Vincular una persona sin cuenta a un usuario existente: aparece al pulsar
+                 "Vincular" en una fila. Solo se puede vincular; ya no se puede desvincular
+                 (un usuario siempre representa a una persona real). -->
+            <div id="linkPersonBlock" class="hidden">
+              <h3 class="subhead" id="linkPersonTitle">Vincular persona</h3>
+              <div class="combobox" id="linkPersonCombo">
+                <input type="text" id="linkPersonSearch" autocomplete="off"
+                       placeholder="Busca por nombre, apellido, cédula, correo o teléfono…">
+                <input type="hidden" id="linkPersonId">
+                <div class="combobox-results hidden" id="linkPersonResults"></div>
+              </div>
+              <div class="panel-actions">
+                <button id="btnConfirmLinkPerson" type="button">Vincular</button>
+                <button id="btnCancelLinkPerson" type="button" class="secondary">Cancelar</button>
+              </div>
+              <p id="linkPersonMsg" class="msg"></p>
+            </div>
           </section>
 
           <!-- Mantenimiento de personas (nómina): crear/buscar/editar; vínculo con cuentas -->
@@ -114,7 +137,7 @@
             </div>
 
             <h3 class="subhead">Personas</h3>
-            <input type="search" id="personSearch" class="search-input" placeholder="Buscar por nombre o cédula…" autocomplete="off">
+            <input type="search" id="personSearch" class="search-input" placeholder="Buscar por nombre, apellido, cédula, correo o teléfono…" autocomplete="off">
             <div id="personList" class="list"></div>
 
             <!-- Gestor de cargos de una persona: aparece al pulsar "Cargos" en una fila.

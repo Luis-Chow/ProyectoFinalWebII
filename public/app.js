@@ -48,7 +48,17 @@ const memberRoleSelect = $('#memberRoleSelect');
 const memberMsg = $('#memberMsg');
 const memberList = $('#memberList');
 const userSearch = $('#userSearch');
-const registerPersonSelect = $('#registerPersonSelect');
+const registerPersonSearch = $('#registerPersonSearch');
+const registerPersonId = $('#registerPersonId');
+const registerPersonResults = $('#registerPersonResults');
+const linkPersonBlock = $('#linkPersonBlock');
+const linkPersonTitle = $('#linkPersonTitle');
+const linkPersonSearch = $('#linkPersonSearch');
+const linkPersonId = $('#linkPersonId');
+const linkPersonResults = $('#linkPersonResults');
+const btnConfirmLinkPerson = $('#btnConfirmLinkPerson');
+const btnCancelLinkPerson = $('#btnCancelLinkPerson');
+const linkPersonMsg = $('#linkPersonMsg');
 const formPerson = $('#formPerson');
 const personIdField = $('#personIdField');
 const personChargeSelect = $('#personChargeSelect');
@@ -149,6 +159,7 @@ const showProfileCrudMsg = msgIn(profileCrudMsg);
 const showProyectMsg = msgIn(proyectMsg);
 const showMemberMsg = msgIn(memberMsg);
 const showPersonMsg = msgIn(personMsg);
+const showLinkPersonMsg = msgIn(linkPersonMsg);
 const showPersonChargeMsg = msgIn(personChargeMsg);
 const showActivityMsg = msgIn(activityMsg);
 const showAssignMsg = msgIn(assignMsg);
@@ -218,6 +229,67 @@ function miniButton(label, onClick, danger = false) {
   btn.textContent = label;
   btn.addEventListener('click', onClick);
   return btn;
+}
+
+// Combobox de busqueda de personas: input de texto + resultados en vivo por
+// nombre/apellido/cedula/correo/telefono (server.listPersons). Evita cargar TODAS las
+// personas en un <select> cuando la nomina tiene miles de filas sin cuenta.
+function createPersonCombobox({ input, hiddenInput, resultsBox, onlyUnlinked = false, limit = 20 }) {
+  let timer = null;
+
+  function hide() {
+    resultsBox.classList.add('hidden');
+    resultsBox.innerHTML = '';
+  }
+
+  function renderResults(rows) {
+    resultsBox.innerHTML = '';
+    if (!rows.length) {
+      const empty = document.createElement('div');
+      empty.className = 'combobox-empty';
+      empty.textContent = 'Sin coincidencias.';
+      resultsBox.appendChild(empty);
+    } else {
+      for (const p of rows) {
+        const opt = document.createElement('div');
+        opt.className = 'combobox-option';
+        const name = document.createElement('b');
+        name.textContent = `${p.person_na} ${p.person_ln}`;
+        const sub = document.createElement('span');
+        sub.className = 'item-sub';
+        sub.textContent = `CI ${p.person_ci} · ${p.person_mail} · ${p.person_phone}`;
+        opt.append(name, document.createElement('br'), sub);
+        // mousedown (no click): dispara antes que el blur del input, si no el blur
+        // ocultaria la lista antes de que se registre la seleccion.
+        opt.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          hiddenInput.value = p.person_id;
+          input.value = `${p.person_na} ${p.person_ln} · ${p.person_ci}`;
+          hide();
+        });
+        resultsBox.appendChild(opt);
+      }
+    }
+    resultsBox.classList.remove('hidden');
+  }
+
+  input.addEventListener('input', () => {
+    hiddenInput.value = ''; // editar el texto invalida la seleccion previa
+    clearTimeout(timer);
+    const term = input.value.trim();
+    if (term.length < 2) { hide(); return; }
+    timer = setTimeout(async () => {
+      const res = await toProcess('Person', 'listPersons', [term, limit]);
+      const rows = res.ok ? res.data.data.filter((p) => !onlyUnlinked || !p.linked_user_id) : [];
+      renderResults(rows);
+    }, 250);
+  });
+
+  input.addEventListener('blur', () => setTimeout(hide, 150));
+
+  return {
+    reset() { input.value = ''; hiddenInput.value = ''; hide(); }
+  };
 }
 
 // ---- Pestaña "Asignar perfiles a usuarios" (CU-03) ----
@@ -876,21 +948,30 @@ function selectMyActivity(a) {
 }
 
 // ---- Pestaña "Mantenimiento de usuarios" (CU-02) ----
+
+// Comboboxes de busqueda de personas sin cuenta (no cargan la nomina entera: buscan
+// por termino, asi la pestaña sigue siendo usable con miles de personas).
+const registerPersonPicker = createPersonCombobox({
+  input: registerPersonSearch,
+  hiddenInput: registerPersonId,
+  resultsBox: registerPersonResults,
+  onlyUnlinked: true
+});
+const linkPersonPicker = createPersonCombobox({
+  input: linkPersonSearch,
+  hiddenInput: linkPersonId,
+  resultsBox: linkPersonResults,
+  onlyUnlinked: true
+});
+
 async function loadUserMgmt() {
   // El formulario de crear cuenta solo se muestra a quien tiene permiso.
   createUserBlock.classList.toggle('hidden', !currentSession.canRegister);
   formRegister.reset();
+  registerPersonPicker.reset();
   showRegisterMsg('');
-  await refreshUnlinkedPersons();
+  linkPersonBlock.classList.add('hidden');
   refreshUsersList();
-}
-
-// Personas sin cuenta: alimentan el selector "Persona (opcional)" al crear una cuenta.
-async function refreshUnlinkedPersons() {
-  const res = await toProcess('Person', 'listPersons', ['']);
-  const free = res.ok ? res.data.data.filter((p) => !p.linked_user_id) : [];
-  fillSelect(registerPersonSelect, free, 'person_id',
-    (p) => `${p.person_na} ${p.person_ln} · ${p.person_ci}`, '— Sin persona —');
 }
 
 async function refreshUsersList() {
@@ -934,18 +1015,11 @@ async function refreshUsersList() {
     badge.textContent = u.status_de;
     right.appendChild(badge);
 
-    // Vincular/desvincular persona (solo con permiso de crear cuentas = admin).
-    if (currentSession.canRegister) {
-      if (u.person_id) {
-        right.appendChild(miniButton('Desvincular', async () => {
-          if (!confirm(`¿Quitar el vínculo de persona de "${u.user_na}"?`)) return;
-          const r = await toProcess('Person', 'unlinkPersonUser', [u.user_id]);
-          showUsersMsg(r.ok ? 'Vínculo quitado.' : (r.data.msg || 'Error.'), r.ok);
-          if (r.ok) { refreshUnlinkedPersons(); refreshUsersList(); }
-        }, true));
-      } else {
-        right.appendChild(miniButton('Vincular', () => linkPersonToUser(u)));
-      }
+    // Vincular persona (solo con permiso de crear cuentas = admin). Ya no existe
+    // "Desvincular": una cuenta siempre representa a una persona real, así que el
+    // vínculo no se puede deshacer una vez hecho (solo se corrige a mano en la BD).
+    if (currentSession.canRegister && !u.person_id) {
+      right.appendChild(miniButton('Vincular', () => openLinkPersonBlock(u)));
     }
 
     // Toggle activar/desactivar: solo si tiene permiso; bloqueado sobre tu propia cuenta activa.
@@ -969,20 +1043,36 @@ async function refreshUsersList() {
   }
 }
 
-// Vincular una persona (sin cuenta) a una cuenta existente, vía prompt de selección simple.
-async function linkPersonToUser(u) {
-  const res = await toProcess('Person', 'listPersons', ['']);
-  const free = res.ok ? res.data.data.filter((p) => !p.linked_user_id) : [];
-  if (!free.length) { showUsersMsg('No hay personas libres para vincular. Registra una primero.', false); return; }
-  const lista = free.map((p, i) => `${i + 1}) ${p.person_na} ${p.person_ln} · ${p.person_ci}`).join('\n');
-  const elegido = prompt(`Vincular persona a "${u.user_na}". Escribe el número:\n\n${lista}`);
-  if (elegido == null) return;
-  const idx = Number(elegido) - 1;
-  if (!(idx >= 0 && idx < free.length)) { showUsersMsg('Selección no válida.', false); return; }
-  const r = await toProcess('Person', 'linkPersonUser', [free[idx].person_id, u.user_id]);
-  showUsersMsg(r.ok ? 'Persona vinculada.' : (r.data.msg || 'Error.'), r.ok);
-  if (r.ok) { refreshUnlinkedPersons(); refreshUsersList(); }
+// Abre el buscador inline para vincular una persona (sin cuenta) a una cuenta existente.
+let linkPersonTarget = null;
+function openLinkPersonBlock(u) {
+  linkPersonTarget = u;
+  linkPersonTitle.textContent = `Vincular persona a "${u.user_na}"`;
+  linkPersonPicker.reset();
+  showLinkPersonMsg('');
+  linkPersonBlock.classList.remove('hidden');
+  linkPersonSearch.focus();
 }
+
+btnConfirmLinkPerson.addEventListener('click', async () => {
+  if (!linkPersonTarget) return;
+  const person_id = Number(linkPersonId.value);
+  if (!person_id) { showLinkPersonMsg('Busca y elige una persona de la lista.', false); return; }
+  const r = await toProcess('Person', 'linkPersonUser', [person_id, linkPersonTarget.user_id]);
+  if (r.ok) {
+    linkPersonBlock.classList.add('hidden');
+    linkPersonTarget = null;
+    showUsersMsg('Persona vinculada.', true);
+    refreshUsersList();
+  } else {
+    showLinkPersonMsg(r.data.msg || 'Error.', false);
+  }
+});
+
+btnCancelLinkPerson.addEventListener('click', () => {
+  linkPersonTarget = null;
+  linkPersonBlock.classList.add('hidden');
+});
 
 // ---- Pestaña "Mantenimiento de personas" (nómina): crear/buscar/editar + cargos ----
 let currentPerson = null; // persona elegida con el botón "Cargos"
@@ -1008,7 +1098,7 @@ function resetPersonForm() {
 
 async function refreshPersonList() {
   personList.innerHTML = '';
-  const res = await toProcess('Person', 'listPersons', [personSearch.value.trim()]);
+  const res = await toProcess('Person', 'listPersons', [personSearch.value.trim(), 500]);
   if (!res.ok) { showPersonMsg(res.data.msg || 'No tienes permiso para ver personas.', false); return; }
   const rows = res.data.data;
   if (!rows.length) {
@@ -1604,13 +1694,13 @@ formRegister.addEventListener('submit', async (e) => {
   e.preventDefault();
   const fd = new FormData(formRegister);
   const body = { user_na: fd.get('user_na'), user_pw: fd.get('user_pw') };
-  // Persona opcional: solo se envía si se eligió una en el selector.
-  if (registerPersonSelect.value) body.person_id = Number(registerPersonSelect.value);
+  // Persona opcional: solo se envía si se eligió una en el buscador.
+  if (registerPersonId.value) body.person_id = Number(registerPersonId.value);
   const { ok, data } = await toProcess('User', 'insertUser', body);
   if (ok) {
     formRegister.reset();
+    registerPersonPicker.reset();
     showRegisterMsg('Usuario creado.', true);
-    refreshUnlinkedPersons();
     refreshUsersList();
   } else if (data.errors && data.errors.length) {
     showRegisterMsg('• ' + data.errors.join('\n• '), false);
@@ -1645,7 +1735,6 @@ formPerson.addEventListener('submit', async (e) => {
     showPersonMsg(editId ? 'Persona actualizada.' : 'Persona registrada.', true);
     resetPersonForm();
     refreshPersonList();
-    refreshUnlinkedPersons();
   } else if (data.errors && data.errors.length) {
     showPersonMsg('• ' + data.errors.join('\n• '), false);
   } else {

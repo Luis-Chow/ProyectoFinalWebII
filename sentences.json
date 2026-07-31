@@ -25,7 +25,7 @@
     "listMethods": "SELECT m.method_id, m.method_de, (pm.permission_method_id IS NOT NULL) AS granted FROM method m LEFT JOIN permission_method pm ON pm.method_id = m.method_id AND pm.profile_id = $2 WHERE m.object_id = $1 ORDER BY m.method_id",
     "listOptions": "SELECT op.option_id, op.option_de, (po.permission_option_id IS NOT NULL) AS granted FROM option op LEFT JOIN permission_option po ON po.option_id = op.option_id AND po.profile_id = $2 WHERE op.sub_system_id = $1 ORDER BY op.option_id",
 
-    "listPersons": "SELECT pe.person_id, pe.person_ci, pe.person_na, pe.person_ln, COALESCE(pe.person_mail, '—') AS person_mail, COALESCE(pe.person_phone, '—') AS person_phone, COALESCE((SELECT string_agg(c.name, ', ' ORDER BY c.name) FROM person_charge pc INNER JOIN charge c ON c.id = pc.charge_id WHERE pc.person_id = pe.person_id), 'Sin cargo') AS charges, u.user_id AS linked_user_id, u.user_na AS linked_user FROM person pe LEFT JOIN person_user pu ON pu.person_id = pe.person_id LEFT JOIN \"user\" u ON u.user_id = pu.user_id WHERE ($1 = '' OR pe.person_na ILIKE '%' || $1 || '%' OR pe.person_ln ILIKE '%' || $1 || '%' OR pe.person_ci ILIKE '%' || $1 || '%') ORDER BY pe.person_na, pe.person_ln",
+    "listPersons": "SELECT pe.person_id, pe.person_ci, pe.person_na, pe.person_ln, COALESCE(pe.person_mail, '—') AS person_mail, COALESCE(pe.person_phone, '—') AS person_phone, COALESCE((SELECT string_agg(c.name, ', ' ORDER BY c.name) FROM person_charge pc INNER JOIN charge c ON c.id = pc.charge_id WHERE pc.person_id = pe.person_id), 'Sin cargo') AS charges, u.user_id AS linked_user_id, u.user_na AS linked_user FROM person pe LEFT JOIN person_user pu ON pu.person_id = pe.person_id LEFT JOIN \"user\" u ON u.user_id = pu.user_id WHERE ($1 = '' OR pe.person_na ILIKE '%' || $1 || '%' OR pe.person_ln ILIKE '%' || $1 || '%' OR pe.person_ci ILIKE '%' || $1 || '%' OR pe.person_mail ILIKE '%' || $1 || '%' OR pe.person_phone ILIKE '%' || $1 || '%') ORDER BY pe.person_na, pe.person_ln LIMIT $2",
     "insertPerson": "INSERT INTO person (person_ci, person_na, person_ln, person_mail, person_phone) VALUES ($1, $2, $3, $4, $5) RETURNING person_id",
     "updatePerson": "UPDATE person SET person_ci = $2, person_na = $3, person_ln = $4, person_mail = $5, person_phone = $6 WHERE person_id = $1",
     "listCharges": "SELECT id, name FROM charge ORDER BY id",
@@ -33,7 +33,6 @@
     "addPersonCharge": "INSERT INTO person_charge (person_id, charge_id) VALUES ($1, $2) ON CONFLICT (person_id, charge_id) DO NOTHING RETURNING id",
     "removePersonCharge": "DELETE FROM person_charge WHERE person_id = $1 AND charge_id = $2",
     "linkPersonUser": "INSERT INTO person_user (person_id, user_id) VALUES ($1, $2)",
-    "unlinkPersonUser": "DELETE FROM person_user WHERE user_id = $1",
     "getPersonIdByUser": "SELECT person_id FROM person_user WHERE user_id = $1",
     "getUserStatusById": "SELECT status_id FROM \"user\" WHERE user_id = $1",
 
@@ -176,7 +175,6 @@
     "seedMethodUpdatePerson": "INSERT INTO method (method_id, method_de, object_id) VALUES (28, 'updatePerson', 7) ON CONFLICT (method_id) DO NOTHING",
     "seedMethodListCharges": "INSERT INTO method (method_id, method_de, object_id) VALUES (29, 'listCharges', 7) ON CONFLICT (method_id) DO NOTHING",
     "seedMethodLinkPersonUser": "INSERT INTO method (method_id, method_de, object_id) VALUES (30, 'linkPersonUser', 7) ON CONFLICT (method_id) DO NOTHING",
-    "seedMethodUnlinkPersonUser": "INSERT INTO method (method_id, method_de, object_id) VALUES (31, 'unlinkPersonUser', 7) ON CONFLICT (method_id) DO NOTHING",
     "seedMethodListSubsystems": "INSERT INTO method (method_id, method_de, object_id) VALUES (32, 'listSubsystems', 3) ON CONFLICT (method_id) DO NOTHING",
     "seedMethodListObjects": "INSERT INTO method (method_id, method_de, object_id) VALUES (33, 'listObjects', 3) ON CONFLICT (method_id) DO NOTHING",
     "seedMethodInsertActivity": "INSERT INTO method (method_id, method_de, object_id) VALUES (34, 'insertActivity', 8) ON CONFLICT (method_id) DO NOTHING",
@@ -226,7 +224,6 @@
     "seedPermAdminUpdatePerson": "INSERT INTO permission_method (profile_id, method_id) VALUES (1, 28) ON CONFLICT (profile_id, method_id) DO NOTHING",
     "seedPermAdminListCharges": "INSERT INTO permission_method (profile_id, method_id) VALUES (1, 29) ON CONFLICT (profile_id, method_id) DO NOTHING",
     "seedPermAdminLinkPersonUser": "INSERT INTO permission_method (profile_id, method_id) VALUES (1, 30) ON CONFLICT (profile_id, method_id) DO NOTHING",
-    "seedPermAdminUnlinkPersonUser": "INSERT INTO permission_method (profile_id, method_id) VALUES (1, 31) ON CONFLICT (profile_id, method_id) DO NOTHING",
     "seedPermAdminListPersonCharges": "INSERT INTO permission_method (profile_id, method_id) VALUES (1, 46) ON CONFLICT (profile_id, method_id) DO NOTHING",
     "seedPermAdminAddPersonCharge": "INSERT INTO permission_method (profile_id, method_id) VALUES (1, 47) ON CONFLICT (profile_id, method_id) DO NOTHING",
     "seedPermAdminRemovePersonCharge": "INSERT INTO permission_method (profile_id, method_id) VALUES (1, 48) ON CONFLICT (profile_id, method_id) DO NOTHING",
