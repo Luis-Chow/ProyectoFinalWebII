@@ -20,6 +20,22 @@
       <button type="submit">Entrar</button>
     </form>
 
+    <!-- Elegir perfil tras el login: solo aparece si el usuario tiene varios perfiles
+         (user_profile es M:N). Con uno solo, el servidor lo activa directo y esta pantalla
+         se salta. -->
+    <section id="chooseProfileSelect" class="panel hidden">
+      <h2 class="select-title">Elige un perfil</h2>
+      <p class="hint">Tu cuenta tiene varios perfiles. Elige con cuál quieres trabajar.</p>
+      <label>Perfil
+        <select id="chooseProfileDropdown"></select>
+      </label>
+      <p id="chooseProfileMsg" class="msg"></p>
+      <div class="panel-actions">
+        <button id="btnEnterProfile" type="button">Entrar</button>
+        <button id="btnCancelChooseProfile" type="button" class="secondary">Cerrar sesión</button>
+      </div>
+    </section>
+
     <!-- Selección de subsistema tras el login. La lista la entrega el servidor
          según los permisos del perfil activo. -->
     <section id="subsystemSelect" class="panel hidden">

@@ -2,6 +2,9 @@ const $ = (sel) => document.querySelector(sel);
 
 const formLogin = $('#formLogin');
 const formRegister = $('#formRegister');
+const chooseProfileSelect = $('#chooseProfileSelect');
+const chooseProfileDropdown = $('#chooseProfileDropdown');
+const chooseProfileMsg = $('#chooseProfileMsg');
 const subsystemSelect = $('#subsystemSelect');
 const subsystemDropdown = $('#subsystemDropdown');
 const subsystemMsg = $('#subsystemMsg');
@@ -155,6 +158,7 @@ const showManageMsg = msgIn(manageMsg);
 const showPermMsg = msgIn(permMsg);
 const showAuditMsg = msgIn(auditMsg);
 const showSubsystemMsg = msgIn(subsystemMsg);
+const showChooseProfileMsg = msgIn(chooseProfileMsg);
 const showProfileCrudMsg = msgIn(profileCrudMsg);
 const showProyectMsg = msgIn(proyectMsg);
 const showMemberMsg = msgIn(memberMsg);
@@ -1573,6 +1577,7 @@ function renderProfileSwitcher() {
 // ---- Navegacion entre las tres pantallas ----
 function hideAllScreens() {
   formLogin.classList.add('hidden');
+  chooseProfileSelect.classList.add('hidden');
   subsystemSelect.classList.add('hidden');
   panel.classList.add('hidden');
 }
@@ -1587,6 +1592,26 @@ function renderLoggedOut() {
   currentProfiles = [];
   currentSubsystems = [];
   currentSubsystem = null;
+}
+
+// Pantalla "Elige un perfil" (paso posterior al login, solo si hay mas de uno).
+function renderChooseProfile() {
+  hideAllScreens();
+  title.classList.add('hidden');
+  msg.classList.add('hidden');
+  chooseProfileSelect.classList.remove('hidden');
+  showChooseProfileMsg('');
+  fillProfileOptions(chooseProfileDropdown, currentProfiles);
+}
+
+// Decide la pantalla siguiente tras /login o /me: si ya hay perfil activo (uno solo)
+// pasa directo a elegir subsistema; si hay varios y ninguno activo, hay que preguntar.
+function afterProfilesLoaded() {
+  if (currentSession.profile_id == null && currentProfiles.length > 1) {
+    renderChooseProfile();
+  } else {
+    renderSubsystemSelect();
+  }
 }
 
 // Pantalla de seleccion de subsistema (paso posterior al login).
@@ -1636,10 +1661,31 @@ formLogin.addEventListener('submit', async (e) => {
     currentSession = data.objectSession;
     currentProfiles = data.profiles || [];
     currentSubsystems = data.subsystems || [];
-    renderSubsystemSelect();
+    afterProfilesLoaded();
   } else {
     showMsg(data.msg, false);
   }
+});
+
+$('#btnEnterProfile').addEventListener('click', async () => {
+  const profile_id = Number(chooseProfileDropdown.value);
+  if (!profile_id) return;
+  const { ok, data } = await api('/selectProfile', {
+    method: 'POST',
+    body: JSON.stringify({ profile_id })
+  });
+  if (ok) {
+    currentSession = data.objectSession;
+    currentSubsystems = data.subsystems || [];
+    renderSubsystemSelect();
+  } else {
+    showChooseProfileMsg(data.msg || 'No se pudo elegir el perfil.', false);
+  }
+});
+
+$('#btnCancelChooseProfile').addEventListener('click', async () => {
+  await api('/logout', { method: 'POST' });
+  renderLoggedOut();
 });
 
 $('#btnEnterSubsystem').addEventListener('click', () => {
@@ -1986,13 +2032,13 @@ $('#btnRevokeOption').addEventListener('click', () => applyOptionPerm(false));
 $('#btnAuditFilter').addEventListener('click', loadAuditData);
 $('#btnAuditClear').addEventListener('click', () => { auditFrom.value = ''; auditTo.value = ''; loadAuditData(); });
 
-// Al recargar la pagina, restaura la sesion si la cookie sigue viva y reanuda en la
-// seleccion de subsistema.
+// Al recargar la pagina, restaura la sesion si la cookie sigue viva y reanuda donde
+// corresponda (elegir perfil o elegir subsistema).
 (async () => {
   const { ok, data } = await api('/me');
   if (!ok || !data.objectSession) return;
   currentSession = data.objectSession;
   currentProfiles = data.profiles || [];
   currentSubsystems = data.subsystems || [];
-  renderSubsystemSelect();
+  afterProfilesLoaded();
 })();

@@ -127,16 +127,27 @@ app.post('/login', async (req, res) => {
             return res.status(403).json({ msg: 'El usuario no tiene perfiles asignados. Contacte al administrador.' });
         }
 
-        // Perfil activo por defecto = el primero. El usuario puede cambiarlo luego con el
-        // selector de perfil (abajo en la ventana). Tras el login se elige el SUBSISTEMA.
-        ses.setActiveProfile(profiles[0]);
-        await audit(ses, 'login', `Inició sesión como ${profiles[0].profile_de}`);
-        const subsystems = await getSubsystems(profiles[0].profile_id);
+        // Con un solo perfil no hace falta preguntar: se activa directo. Con varios (M:N
+        // via user_profile), el servidor NO elige por el usuario -> profile_id queda null
+        // y el cliente muestra la pantalla "Elige un perfil" antes de seguir.
+        if (profiles.length === 1) {
+            ses.setActiveProfile(profiles[0]);
+            await audit(ses, 'login', `Inició sesión como ${profiles[0].profile_de}`);
+            const subsystems = await getSubsystems(profiles[0].profile_id);
+            return res.json({
+                msg: 'Login OK.',
+                objectSession: await withPermissions(ses.getDataSession()),
+                profiles,
+                subsystems
+            });
+        }
+
+        await audit(ses, 'login', 'Inició sesión (pendiente de elegir perfil)');
         return res.json({
-            msg: 'Login OK.',
+            msg: 'Login OK. Elige un perfil.',
             objectSession: await withPermissions(ses.getDataSession()),
             profiles,
-            subsystems
+            subsystems: []
         });
     } catch (err) {
         console.error(err);
@@ -200,10 +211,12 @@ app.get('/me', async (req, res) => {
         await ses.logout();
         return res.status(401).json({ msg: 'Tu cuenta fue desactivada. Debes iniciar sesión de nuevo.' });
     }
-    // Por si la sesion quedo sin perfil activo (caso raro): activar el primero.
+    // Sin perfil activo: si solo tiene uno, se activa solo (caso trivial). Si tiene
+    // varios, se deja en null a proposito -> el cliente vuelve a mostrar "Elige un perfil"
+    // en vez de adivinar cual queria (p. ej. si recargo la pagina antes de elegir).
     if (data.profile_id == null) {
         const profiles = await ses.getProfiles(data.user_id);
-        if (profiles.length) ses.setActiveProfile(profiles[0]);
+        if (profiles.length === 1) ses.setActiveProfile(profiles[0]);
         data = ses.getDataSession();
     }
     const profiles = await ses.getProfiles(data.user_id);
