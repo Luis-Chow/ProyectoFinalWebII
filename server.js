@@ -548,7 +548,6 @@ app.post('/toProcess', async (req, res) => {
             ['model', 'seedAssignFacturacionDocumentacion'],
             ['model', 'seedAssignFacturacionImpuestos'],
             ['model', 'seedReportRRHHDiseno1'],
-            ['model', 'seedReportRRHHDiseno2'],
             ['model', 'seedReportRRHHManual'],
             ['model', 'seedReportRRHHRequerimientos'],
             ['model', 'seedReportMigracionServidores'],

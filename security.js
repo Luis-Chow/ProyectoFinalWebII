@@ -502,7 +502,8 @@ const businessMethods = {
         return await global.dbc.exeQuery(global.dbc.getSentence('proyectos', 'getMyActivities'), [person_id]);
     },
 
-    // CU-11: insertar reporte de avance (50-100%)
+    // CU-11: insertar reporte de avance. Escala fija de estados (0% implícito sin reporte,
+    // 50% y 100% son los únicos valores reportables) — no un porcentaje libre.
     'proyectos.Activity.insertReport': async (ctx) => {
         const { activity_id, person_id, percentage, description } = ctx.params || {};
         const errors = [];
@@ -511,8 +512,8 @@ const businessMethods = {
 
         if (!activity_id) errors.push('La actividad es obligatoria.');
         if (!person_id) errors.push('La persona es obligatoria.');
-        if (numPercentage < 50 || numPercentage > 100) {
-            errors.push('El porcentaje debe estar entre 50% y 100%.');
+        if (numPercentage !== 50 && numPercentage !== 100) {
+            errors.push('El porcentaje solo puede ser 50% o 100%.');
         }
         if (!cleanDescription || cleanDescription.length < 10) {
             errors.push('La descripción debe tener al menos 10 caracteres.');
@@ -532,6 +533,18 @@ const businessMethods = {
             [activity_id, person_id]
         );
         if (!assignment.length) throw new AppError(403, 'Esta persona no está asignada a esta actividad.');
+
+        // El avance debe progresar: nada de reportar el mismo % (o uno menor) dos veces.
+        // Sin reportes previos, el estado actual es 0% implícito.
+        const lastReport = await global.dbc.exeQuery(
+            global.dbc.getSentence('proyectos', 'getLastReportPercentage'),
+            [activity_id]
+        );
+        const currentPercentage = lastReport.length ? lastReport[0].percentage : 0;
+        if (numPercentage <= currentPercentage) {
+            throw new AppError(400, 'No se pudo registrar el reporte.',
+                [`El avance ya está en ${currentPercentage}%; no puedes reportar ${numPercentage}% de nuevo.`]);
+        }
 
         const STATUS_CULMINADO = 3;
         const completed = numPercentage >= 100;

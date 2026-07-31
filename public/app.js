@@ -107,6 +107,8 @@ const myReportBlock = $('#myReportBlock');
 const myReportTitle = $('#myReportTitle');
 const formMyReport = $('#formMyReport');
 const myReportMsg = $('#myReportMsg');
+const myReportPercentageSelect = $('#myReportPercentageSelect');
+const myReportHint = $('#myReportHint');
 
 // ---- Notificaciones (CU-09), reportes de proyectos (CU-14/CU-15) ----
 const formNotify = $('#formNotify');
@@ -920,16 +922,17 @@ async function refreshMyActivitiesList() {
     const item = document.createElement('div');
     item.className = 'item';
 
+    const pct = activityCurrentPercentage(a);
     const left = document.createElement('span');
     left.textContent = `#${a.id} · ${a.name}`;
     const sub = document.createElement('span');
     sub.className = 'item-sub';
-    sub.textContent = `Proyecto: ${a.proyect_name} · ${a.hours}h`;
+    sub.textContent = `Proyecto: ${a.proyect_name} · ${a.hours}h · Avance: ${pct === 0 ? 'Sin iniciar' : pct + '%'}`;
     left.appendChild(sub);
 
     const actions = document.createElement('div');
     actions.className = 'row-actions';
-    
+
     const STATUS_ACTIVO = 1;
     const badge = document.createElement('span');
     badge.className = 'status-badge ' + (a.status_id === STATUS_ACTIVO ? 'on' : 'off');
@@ -946,9 +949,29 @@ async function refreshMyActivitiesList() {
   }
 }
 
+// Estado actual de una actividad: el último reporte (50/100), o 0 si todavía no reportó nada.
+function activityCurrentPercentage(a) {
+  return a.last_percentage != null ? Number(a.last_percentage) : 0;
+}
+
 function selectMyActivity(a) {
   myCurrentActivity = a;
   myReportTitle.textContent = `Reportar avance en «${a.name}»`;
+
+  // Solo se puede reportar un % mayor al último ya registrado (0/50/100, sin repetir ni retroceder).
+  const current = activityCurrentPercentage(a);
+  myReportPercentageSelect.innerHTML = '';
+  for (const value of [50, 100]) {
+    if (value <= current) continue;
+    const opt = document.createElement('option');
+    opt.value = value;
+    opt.textContent = `${value}%`;
+    myReportPercentageSelect.appendChild(opt);
+  }
+  myReportHint.textContent = current === 0
+    ? 'Al llegar al 100% la actividad se completará.'
+    : `Ya reportaste ${current}%. Al llegar al 100% la actividad se completará.`;
+
   myReportBlock.classList.remove('hidden');
   formMyReport.reset();
   showMyReportMsg('');

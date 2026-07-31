@@ -391,10 +391,10 @@
             <div id="myReportBlock" class="hidden">
               <h3 class="subhead" id="myReportTitle">Reportar avance</h3>
               <form id="formMyReport" class="form">
-                <label>Porcentaje de avance (50% - 100%)
-                  <input type="number" name="my_report_percentage" min="50" max="100" required>
+                <label>Porcentaje de avance
+                  <select name="my_report_percentage" id="myReportPercentageSelect" required></select>
                 </label>
-                <small class="hint">Al llegar al 100% la actividad se completará.</small>
+                <small class="hint" id="myReportHint">Al llegar al 100% la actividad se completará.</small>
                 <label>Descripción de lo realizado
                   <textarea name="my_report_description" rows="4" maxlength="1000" required placeholder="Explica qué hiciste..."></textarea>
                 </label>
