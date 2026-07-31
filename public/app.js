@@ -1,3 +1,6 @@
+// Cliente: un único archivo sin build ni framework. Guarda las referencias del DOM,
+// arma las pestañas según los permisos del perfil activo, y habla con el servidor
+// siempre a través de toProcess() (POST /toProcess).
 const $ = (sel) => document.querySelector(sel);
 
 const formLogin = $('#formLogin');

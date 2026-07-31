@@ -1,3 +1,5 @@
+// Sesión HTTP: login/logout y el perfil activo del usuario. No decide permisos ni arma
+// menús — de eso se encarga security.js a partir de lo que esta clase deja en la sesión.
 const session = require('express-session');
 const config = require('./config.json');
 

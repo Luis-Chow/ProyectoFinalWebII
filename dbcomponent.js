@@ -1,3 +1,6 @@
+// Capa de acceso a datos: pool singleton de PostgreSQL. getSentence() saca el SQL de
+// sentences.json (nunca hay sentencias sueltas en el código) y withTransaction() agrupa
+// varias sentencias en una sola transacción (todo o nada).
 const { Pool } = require('pg');
 const config = require('./config.json');
 const sentences = require('./sentences.json');

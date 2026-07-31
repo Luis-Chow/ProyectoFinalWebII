@@ -1,3 +1,6 @@
+// Punto de entrada del servidor: rutas de sesión (/login, /selectProfile, /me, /logout),
+// el dispatcher único /toProcess por el que pasan todas las acciones del sistema, la
+// auditoría centralizada, y el bootstrap (DROP + CREATE + SEED) del esquema al arrancar.
 const express = require('express');
 const cors = require('cors');
 const config = require('./config.json');

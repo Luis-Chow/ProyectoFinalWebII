@@ -1,3 +1,7 @@
+// Motor de permisos (RBAC) del sistema + los métodos "ricos" de negocio (businessMethods).
+// Los permisos viven en la BD pero se cachean en memoria (Maps) para no consultarla en
+// cada request; grant/revoke los recargan. exeMethod() es el punto de entrada: corre el
+// método rico si existe, o cae a ejecutar 1 sentencia SQL simple con los params del cliente.
 const { AppError } = require('./dbcomponent');
 
 const SEP = '-';
