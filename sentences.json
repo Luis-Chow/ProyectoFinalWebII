@@ -293,12 +293,16 @@
     "seedPermOptLiderChat": "INSERT INTO permission_option (profile_id, option_id) VALUES (3, 16) ON CONFLICT (profile_id, option_id) DO NOTHING",
     "seedPermOptEmpleadoChat": "INSERT INTO permission_option (profile_id, option_id) VALUES (2, 16) ON CONFLICT (profile_id, option_id) DO NOTHING",
 
-    "seedUserAdmin": "INSERT INTO \"user\" (user_na, user_pw, status_id) VALUES ('admin1', 'Admin123', 1) ON CONFLICT (user_na) DO NOTHING",
-    "seedUserEmpleado": "INSERT INTO \"user\" (user_na, user_pw, status_id) VALUES ('empleado1', 'Empleado123', 1) ON CONFLICT (user_na) DO NOTHING",
+    "seedUserLuis": "INSERT INTO \"user\" (user_na, user_pw, status_id) VALUES ('Luis', 'Luis123123', 1) ON CONFLICT (user_na) DO NOTHING",
+    "seedUserRonald": "INSERT INTO \"user\" (user_na, user_pw, status_id) VALUES ('Ronald', 'Ronald123123', 1) ON CONFLICT (user_na) DO NOTHING",
+    "seedUserJuan": "INSERT INTO \"user\" (user_na, user_pw, status_id) VALUES ('Juan', 'Juan123123', 1) ON CONFLICT (user_na) DO NOTHING",
+    "seedUserMaria": "INSERT INTO \"user\" (user_na, user_pw, status_id) VALUES ('Maria', 'Maria123123', 1) ON CONFLICT (user_na) DO NOTHING",
 
-    "seedUserProfileAdmin": "INSERT INTO user_profile (user_id, profile_id) SELECT u.user_id, 1 FROM \"user\" u WHERE u.user_na = 'admin1' ON CONFLICT (user_id, profile_id) DO NOTHING",
-    "seedUserProfileAdminLider": "INSERT INTO user_profile (user_id, profile_id) SELECT u.user_id, 3 FROM \"user\" u WHERE u.user_na = 'admin1' ON CONFLICT (user_id, profile_id) DO NOTHING",
-    "seedUserProfileEmpleado": "INSERT INTO user_profile (user_id, profile_id) SELECT u.user_id, 2 FROM \"user\" u WHERE u.user_na = 'empleado1' ON CONFLICT (user_id, profile_id) DO NOTHING",
+    "seedUserProfileLuisAdmin": "INSERT INTO user_profile (user_id, profile_id) SELECT u.user_id, 1 FROM \"user\" u WHERE u.user_na = 'Luis' ON CONFLICT (user_id, profile_id) DO NOTHING",
+    "seedUserProfileLuisLider": "INSERT INTO user_profile (user_id, profile_id) SELECT u.user_id, 3 FROM \"user\" u WHERE u.user_na = 'Luis' ON CONFLICT (user_id, profile_id) DO NOTHING",
+    "seedUserProfileRonald": "INSERT INTO user_profile (user_id, profile_id) SELECT u.user_id, 2 FROM \"user\" u WHERE u.user_na = 'Ronald' ON CONFLICT (user_id, profile_id) DO NOTHING",
+    "seedUserProfileJuan": "INSERT INTO user_profile (user_id, profile_id) SELECT u.user_id, 2 FROM \"user\" u WHERE u.user_na = 'Juan' ON CONFLICT (user_id, profile_id) DO NOTHING",
+    "seedUserProfileMaria": "INSERT INTO user_profile (user_id, profile_id) SELECT u.user_id, 2 FROM \"user\" u WHERE u.user_na = 'Maria' ON CONFLICT (user_id, profile_id) DO NOTHING",
 
     "seedChargeLider": "INSERT INTO charge (id, name) VALUES (1, 'Líder (senior)') ON CONFLICT (id) DO NOTHING",
     "seedChargeDocumentista": "INSERT INTO charge (id, name) VALUES (2, 'Documentista') ON CONFLICT (id) DO NOTHING",
@@ -317,8 +321,10 @@
     "seedPersonChargeJuan": "INSERT INTO person_charge (person_id, charge_id) VALUES (3, 4) ON CONFLICT (person_id, charge_id) DO NOTHING",
     "seedPersonChargeMaria": "INSERT INTO person_charge (person_id, charge_id) VALUES (4, 2) ON CONFLICT (person_id, charge_id) DO NOTHING",
 
-    "seedPersonUserAdmin": "INSERT INTO person_user (person_id, user_id) SELECT 1, u.user_id FROM \"user\" u WHERE u.user_na = 'admin1' AND NOT EXISTS (SELECT 1 FROM person_user pu WHERE pu.person_id = 1)",
-    "seedPersonUserEmpleado": "INSERT INTO person_user (person_id, user_id) SELECT 2, u.user_id FROM \"user\" u WHERE u.user_na = 'empleado1' AND NOT EXISTS (SELECT 1 FROM person_user pu WHERE pu.person_id = 2)",
+    "seedPersonUserLuis": "INSERT INTO person_user (person_id, user_id) SELECT 1, u.user_id FROM \"user\" u WHERE u.user_na = 'Luis' AND NOT EXISTS (SELECT 1 FROM person_user pu WHERE pu.person_id = 1)",
+    "seedPersonUserRonald": "INSERT INTO person_user (person_id, user_id) SELECT 2, u.user_id FROM \"user\" u WHERE u.user_na = 'Ronald' AND NOT EXISTS (SELECT 1 FROM person_user pu WHERE pu.person_id = 2)",
+    "seedPersonUserJuan": "INSERT INTO person_user (person_id, user_id) SELECT 3, u.user_id FROM \"user\" u WHERE u.user_na = 'Juan' AND NOT EXISTS (SELECT 1 FROM person_user pu WHERE pu.person_id = 3)",
+    "seedPersonUserMaria": "INSERT INTO person_user (person_id, user_id) SELECT 4, u.user_id FROM \"user\" u WHERE u.user_na = 'Maria' AND NOT EXISTS (SELECT 1 FROM person_user pu WHERE pu.person_id = 4)",
 
     "seedProyectRRHH": "INSERT INTO proyect (status_id, name) VALUES (1, 'Portal de Recursos Humanos')",
     "seedProyectMigracion": "INSERT INTO proyect (status_id, name) VALUES (1, 'Migración a la Nube')",
@@ -371,8 +377,8 @@
     "seedCompleteFacturacionDocumentacion": "UPDATE activity SET status_id = 3 WHERE id = (SELECT a.id FROM activity a INNER JOIN proyect p ON p.id = a.proyect_id WHERE p.name = 'Sistema de Facturación' AND a.name = 'Documentar proceso de facturación')",
     "seedCompleteFacturacionImpuestos": "UPDATE activity SET status_id = 3 WHERE id = (SELECT a.id FROM activity a INNER JOIN proyect p ON p.id = a.proyect_id WHERE p.name = 'Sistema de Facturación' AND a.name = 'Revisar cálculos de impuestos')",
 
-    "seedNotifRRHH1": "INSERT INTO team_notification (proyect_id, sender_user_id, message) SELECT p.id, u.user_id, 'Bienvenidos al equipo. Por favor registren su avance semanalmente en la hoja de tiempo.' FROM proyect p, \"user\" u WHERE p.name = 'Portal de Recursos Humanos' AND u.user_na = 'admin1'",
-    "seedNotifRRHH2": "INSERT INTO team_notification (proyect_id, sender_user_id, message) SELECT p.id, u.user_id, 'Ya se definieron los mockups iniciales, revisen el diseño antes de la próxima reunión.' FROM proyect p, \"user\" u WHERE p.name = 'Portal de Recursos Humanos' AND u.user_na = 'admin1'",
-    "seedNotifMigracion": "INSERT INTO team_notification (proyect_id, sender_user_id, message) SELECT p.id, u.user_id, 'Recuerden actualizar el estado de la migración cada viernes.' FROM proyect p, \"user\" u WHERE p.name = 'Migración a la Nube' AND u.user_na = 'admin1'"
+    "seedNotifRRHH1": "INSERT INTO team_notification (proyect_id, sender_user_id, message) SELECT p.id, u.user_id, 'Bienvenidos al equipo. Por favor registren su avance semanalmente en la hoja de tiempo.' FROM proyect p, \"user\" u WHERE p.name = 'Portal de Recursos Humanos' AND u.user_na = 'Luis'",
+    "seedNotifRRHH2": "INSERT INTO team_notification (proyect_id, sender_user_id, message) SELECT p.id, u.user_id, 'Ya se definieron los mockups iniciales, revisen el diseño antes de la próxima reunión.' FROM proyect p, \"user\" u WHERE p.name = 'Portal de Recursos Humanos' AND u.user_na = 'Luis'",
+    "seedNotifMigracion": "INSERT INTO team_notification (proyect_id, sender_user_id, message) SELECT p.id, u.user_id, 'Recuerden actualizar el estado de la migración cada viernes.' FROM proyect p, \"user\" u WHERE p.name = 'Migración a la Nube' AND u.user_na = 'Luis'"
   }
 }
